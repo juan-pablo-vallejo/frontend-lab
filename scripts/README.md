@@ -27,12 +27,18 @@ scripts/capture --target qa/fixtures/seeded-defects.target.json --out "$out"
 scripts/measure --in "$out"
 ```
 
-`capture` serves `qa/fixtures/seeded-defects/` on 127.0.0.1 and writes 60 units (2 routes ×
-3 widths × 2 languages × base and 4 states) into `$out`. `measure` writes
+`capture` serves `qa/fixtures/seeded-defects/` on 127.0.0.1 and writes 72 units (2 routes ×
+3 widths × 2 languages × base and 4 states, and 2 more states on `clean` only: `pending`
+and `refused`) into `$out`. `measure` writes
 `$out/findings.json`, prints one line per finding and exits 1: the `defects` route carries
 the nine measurable keys (`contrast`, `target-size`, `overflow`, `missing-label`,
 `focus-ring`, `layout-shift`, `long-animation`, `reduced-motion`, `truncation`) and the
 `clean` route none. Add `--only clean` to `capture` and `measure` exits 0.
+`clean.html` saves with a real request, a `POST` to `save.json` beside it, which the server
+answers with that file (it serves a file for any method); the page waits for that answer and
+at least 1.2 s. `pending` holds that request and presses Save twice: its `held` has one
+request, unanswered when the unit was measured (`inFlightAtCapture: true`) and answered once
+released. `refused` presses Enter in Person, empty, with focus already there.
 
 Finding keys and default thresholds (details under [Finding keys](#finding-keys)):
 
@@ -91,9 +97,30 @@ Exit 0 when every unit was captured; 2 on a bad target or option, or when any un
 | `languages` | `{ id, query?, steps? }[]` | `[{ id: "default" }]` | `query` is merged into the URL (`lang=es`); `steps` run after the page loads                                                                 |
 | `states`    | `{ id, routes?, steps }[]` | none                  | Named states reached by `steps`; `routes` limits a state to those route ids                                                                  |
 
-A step is an object with exactly one key: `{ goto: path }`, `{ click: selector }`,
-`{ fill: [selector, value] }`, `{ press: key }`, `{ waitFor: selector }` (waits until
-visible) or `{ waitMs: number }`.
+A step is an object with exactly one key:
+
+| Step                          | Does                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{ goto: path }`              | Loads `path`, resolved against the base URL                                                                                                                                       |
+| `{ click: selector }`         | Clicks the element                                                                                                                                                                |
+| `{ fill: [selector, value] }` | Replaces the field's value                                                                                                                                                        |
+| `{ press: key }`              | Presses `key` (Playwright's key names: `Enter`, `Escape`, `Tab`, `Shift+Tab`) on whatever has focus                                                                               |
+| `{ press: [selector, key] }`  | Focuses the element, then presses `key` on it                                                                                                                                     |
+| `{ waitFor: selector }`       | Waits until the element is visible                                                                                                                                                |
+| `{ waitMs: number }`          | Waits that many milliseconds                                                                                                                                                      |
+| `{ hold: glob }`              | In a state's steps only. From this step on, every request whose URL matches `glob` (Playwright's URL glob, as `**/save.json`) is held unanswered until the unit has been measured |
+
+`hold` lets a state be photographed and measured while a request is in flight, however short
+the page's own wait. Everything in `measure.json` for that unit is taken while the requests
+are held; `held` records each one, so a second press shows as a second request, or not. Once
+the unit is measured, the held requests go on to the server (through the same loopback rule
+as any request) and the capture waits until each is answered (its status line has come; the
+body is not awaited, since a page may never read it) or has failed, at most 5 s in all, then
+closes the page. A request still unanswered then is recorded as `open`; a held request that
+fails is also in `console.json` like any other.
+
+When the globs of two `hold` steps both match a request, the later step holds it and lists
+it (Playwright runs matching routes from the last registered); the earlier one never sees it.
 
 A unit is one route at one width in one language, in its base state or one named state. Its
 id is `<route>-<width>-<lang>[-<state>]`; a target whose ids would collide is refused. Each
@@ -103,13 +130,13 @@ the language steps, the state steps, then until no finite animation or transitio
 
 ### What a capture writes
 
-| File             | Shape                                                                                                                                                                                                                                                    |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `manifest.json`  | `{ target, startedAt, endedAt, browser: { name, version }, playwright, repo: { commit, dirty } \| null, options, units: [{ id, route, width, lang, state, url, shot }], failed: [{ id, error }] }`                                                       |
-| `shots/<id>.png` | Full page, animations finished (finite ones run to their end, loops reset)                                                                                                                                                                               |
-| `axe.json`       | `{ <unit id>: { violations: Rule[], incomplete: Rule[] } }`, `Rule` = `{ id, impact, help, helpUrl, nodes: [{ selector, summary, box, data }] }`; `incomplete` is what axe could not decide; tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa` |
-| `measure.json`   | `{ <unit id>: Measurements }`, below                                                                                                                                                                                                                     |
-| `console.json`   | `{ <unit id>: { messages: [{ type, text }], pageErrors: [], failedRequests: [{ url, failure }] } }`; errors and warnings only; a response of 400 or more counts as failed                                                                                |
+| File             | Shape                                                                                                                                                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `manifest.json`  | `{ target, startedAt, endedAt, browser: { name, version }, playwright, repo: { commit, dirty } \| null, options, units: [{ id, route, width, lang, state, url, shot }], failed: [{ id, error }], notes: [{ id, note }] }`; a note says what limited a captured unit's evidence |
+| `shots/<id>.png` | Full page, animations finished (finite ones run to their end, loops reset)                                                                                                                                                                                                     |
+| `axe.json`       | `{ <unit id>: { violations: Rule[], incomplete: Rule[] } }`, `Rule` = `{ id, impact, help, helpUrl, nodes: [{ selector, summary, box, data }] }`; `incomplete` is what axe could not decide; tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`                       |
+| `measure.json`   | `{ <unit id>: Measurements }`, below                                                                                                                                                                                                                                           |
+| `console.json`   | `{ <unit id>: { messages: [{ type, text }], pageErrors: [], failedRequests: [{ url, failure }] } }`; errors and warnings only; a response of 400 or more counts as failed                                                                                                      |
 
 `axe-core` 4.14 has no `wcag22a` tag; the WCAG 2.2 A criteria it checks carry older tags.
 `options.target` in the manifest is the target file's base name only.
@@ -117,17 +144,21 @@ the language steps, the state steps, then until no finite animation or transitio
 `Measurements`, per unit, taken after the page has settled and in this order (screenshot and
 axe first, the focus walk and motion last because they change the page). In a unit with a
 named state, axe-core itself is put into the page before the state's steps, and into any
-document they load, to describe `focusAfter`; its scan still follows the screenshot:
+document they load, to describe `focusAfter`; its scan still follows the screenshot. A page
+that already has a `window.axe` of its own at that moment (any value the page put there; an
+element with the id `axe` or a frame named `axe` does not count) is left as it is: nothing is put
+in, `focusAfter` is `null`, and `manifest.notes` says so for that unit:
 
 | Field         | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `settled`     | `false` when finite animations were still running after 5 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `viewport`    | `{ width, height }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `overflow`    | `{ scrollWidth, clientWidth, elements: [{ selector, left, right }] }`: the outermost elements past the viewport edge that are neither fixed nor inside a scroll or clip container                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `interactive` | `[{ selector, role, name, box, inlineInText, states }]`: role and accessible name as axe computes them, the tag name where the element has no role; `states` holds whichever of `aria-busy`, `aria-disabled`, `disabled` (as `true`), `aria-expanded`, `aria-pressed`, `aria-selected`, `aria-checked`, `aria-invalid`, `aria-describedby` and `aria-current` the element carries                                                                                                                                                                                                                                                      |
+| `interactive` | `[{ selector, role, name, box, inlineInText, states }]`: role and accessible name as axe computes them, the tag name where the element has no role; `states` holds whichever of `aria-busy`, `aria-disabled`, `disabled` and `readonly` (each as `true`), `aria-readonly`, `aria-expanded`, `aria-pressed`, `aria-selected`, `aria-checked`, `aria-invalid`, `aria-describedby` and `aria-current` the element carries                                                                                                                                                                                                                 |
 | `document`    | `{ lang, title }`: the root element's `lang` attribute and the document title                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `liveRegions` | `[{ selector, role, live, text }]`: every element with `role="status"`, `"alert"` or `"log"` or an `aria-live` attribute; `live` is the `aria-live` value, or the role's own politeness (`status` and `log` polite, `alert` assertive)                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `focusAfter`  | For a unit with a named state, `{ selector, role, name }` of the element that has focus after the state's steps and the settling, or `null` when focus is on the body, the element has left the page or it cannot be described; `null` for a base unit. Focus is read again until it has not changed for 400 ms (at most 2 s), so a move on the next frame, after a timer or at the end of a transition is seen; a later move is seen only if the state ends with a `waitMs` or `waitFor` step. The element is described at that moment, as in `interactive`; inside a shadow root or an `iframe` it is the host or the frame element  |
+| `held`        | `[{ pattern, requests: [{ method, url, inFlightAtCapture, outcome, status }] }]`: one entry per `hold` step of the state, with every request it held, in order; `[]` when the state holds nothing and for a base unit. `inFlightAtCapture` is `false` when the browser already had an answer or a failure before the release, so the request was not held after all; `outcome` is what came after the release, at most 5 s later: `answered` (with its `status`), `failed`, or `open` (none came); `status` is `null` unless answered                                                                                                  |
 | `focus`       | `{ stops: [{ selector, changed, changedProperties, outlineStyle, outlineWidth }], limitReached }`: up to 60 Tab presses from the top, passing over one stop on the body (under a modal dialog Tab goes through the browser's own controls and comes back); after each, the focused element's own transitions run to their end (at most 1 s); `changed` compares outline, box-shadow, border and background with how the element was drawn before any focus. A line with style `none`, zero width or a transparent colour, and a shadow with no colour or no size, count as not drawn; `outlineStyle: "auto"` is the browser's own ring |
 | `motion`      | `{ noPreference: Entry[] \| null, reduce: Entry[] }`; `Entry` is `{ selector, kind, name, properties, durationMs, iterations }` for every declared transition and animation with a duration, hidden elements included, on elements, on their drawn `::before` and `::after`, and inside open shadow roots (selector `host >> inner`). `noPreference` is `null` under `--reduced-motion`                                                                                                                                                                                                                                                |
 | `layoutShift` | `{ score, shifts: [{ value, startTime, hadRecentInput, sources }] }`; `score` sums the shifts without recent input since navigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -143,7 +174,7 @@ Reads a capture folder and writes `<dir>/findings.json`: an array of
 `{ key, unit: { route, width, lang, state }, selector, measured, threshold, evidence: { shot, rule? } }`.
 Prints one tab-separated line per finding. On standard error it prints one `notice:` line per
 unit whose measurement is limited: the page had not settled, the focus walk stopped at 60
-stops, or axe could not decide some rules (`incomplete`). Notices are not findings.
+stops, axe could not decide some rules (`incomplete`), or the manifest carries a note for it. Notices are not findings.
 
 | Exit | Meaning                                                                                                                        |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -171,7 +202,7 @@ file overrides any of them.
 | `request-failed` | `console.json`                   | a request failed or answered 400 or more                                                                                                            | none              |
 | `axe:<rule-id>`  | axe                              | any other axe violation                                                                                                                             | none              |
 
-`document`, `liveRegions`, `interactive[].states` and `focusAfter` are evidence for a reader
+`document`, `liveRegions`, `interactive[].states`, `focusAfter` and `held` are evidence for a reader
 of the capture; `measure` makes no finding from them.
 
 `contrast` and `missing-label` are axe's judgement: a `contrast` value in `--standards`

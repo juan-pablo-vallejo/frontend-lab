@@ -4,9 +4,10 @@ export type Step =
   | { goto: string }
   | { click: string }
   | { fill: [string, string] }
-  | { press: string }
+  | { press: string | [string, string] }
   | { waitFor: string }
-  | { waitMs: number };
+  | { waitMs: number }
+  | { hold: string };
 
 export type Target = {
   name: string;
@@ -45,6 +46,8 @@ export type Manifest = {
   };
   units: Unit[];
   failed: { id: string; error: string }[];
+  // What limited the evidence of a captured unit, said once per unit.
+  notes: { id: string; note: string }[];
 };
 
 export type Box = { x: number; y: number; width: number; height: number };
@@ -108,6 +111,16 @@ export type Measurements = {
     text: string;
   }[];
   focusAfter: Described | null;
+  held: {
+    pattern: string;
+    requests: {
+      method: string;
+      url: string;
+      inFlightAtCapture: boolean;
+      outcome: "answered" | "failed" | "open";
+      status: number | null;
+    }[];
+  }[];
   focus: { stops: FocusStop[]; limitReached: boolean };
   motion: { noPreference: MotionEntry[] | null; reduce: MotionEntry[] };
   layoutShift: {

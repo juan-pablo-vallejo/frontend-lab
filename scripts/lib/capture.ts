@@ -1,5 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
-import { chromium, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Request,
+  type Route,
+} from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -132,15 +139,101 @@ function withQuery(url: string, query: string | undefined): string {
   return parsed.toString();
 }
 
-async function runSteps(page: Page, base: string, steps: Step[]): Promise<void> {
+// Requests a state's `hold` step keeps unanswered until the unit has been measured.
+type HeldRequest = {
+  route: Route;
+  method: string;
+  url: string;
+  // What the browser saw of the answer, whenever it came: null while there is none.
+  result: { outcome: "answered" | "failed"; status: number | null } | null;
+  settled: Promise<void>;
+  inFlightAtCapture: boolean;
+};
+type Hold = { pattern: string; items: HeldRequest[]; released: boolean };
+
+const RELEASE_WAIT_MS = 5000;
+
+async function startHold(page: Page, pattern: string, holds: Hold[]): Promise<void> {
+  const hold: Hold = { pattern, items: [], released: false };
+  holds.push(hold);
+  await page.route(pattern, (route) => {
+    if (hold.released) return route.fallback();
+    const request: Request = route.request();
+    const item: HeldRequest = {
+      route,
+      method: request.method(),
+      url: request.url(),
+      result: null,
+      settled: Promise.resolve(),
+      inFlightAtCapture: true,
+    };
+    // Settles on the answer's status line (the page may never read the body) or on the
+    // failure; null from response() means the request failed.
+    item.settled = request.response().then(
+      (response) => {
+        item.result = response
+          ? { outcome: "answered", status: response.status() }
+          : { outcome: "failed", status: null };
+      },
+      () => undefined,
+    );
+    hold.items.push(item);
+  });
+}
+
+// Notes which held requests are still unanswered (the unit has just been measured), lets
+// each go on through the context's own routing, so the loopback rule still applies, and
+// waits until each is answered or has failed, at most 5 s in all. One still unanswered then
+// stays "open" in the evidence; the page closes either way, so nothing is left hanging.
+async function releaseHolds(holds: Hold[]): Promise<void> {
+  const items = holds.flatMap((hold) => (hold.released ? [] : hold.items));
+  for (const hold of holds) hold.released = true;
+  if (items.length === 0) return;
+  for (const item of items) item.inFlightAtCapture = item.result === null;
+  await Promise.all(items.map(({ route }) => route.fallback().catch(() => undefined)));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    Promise.all(items.map((item) => item.settled)),
+    new Promise<void>((wait) => {
+      timer = setTimeout(wait, RELEASE_WAIT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
+}
+
+function heldEvidence(holds: Hold[]): Measurements["held"] {
+  return holds.map((hold) => ({
+    pattern: hold.pattern,
+    requests: hold.items.map((item) => ({
+      method: item.method,
+      url: item.url,
+      inFlightAtCapture: item.inFlightAtCapture,
+      outcome: item.result?.outcome ?? "open",
+      status: item.result?.status ?? null,
+    })),
+  }));
+}
+
+async function runSteps(
+  page: Page,
+  base: string,
+  steps: Step[],
+  holds: Hold[] | null = null,
+): Promise<void> {
   for (const step of steps) {
     if ("goto" in step) await page.goto(new URL(step.goto, base).toString());
     else if ("click" in step) await page.click(step.click);
     else if ("fill" in step) await page.fill(step.fill[0], step.fill[1]);
-    else if ("press" in step) await page.keyboard.press(step.press);
-    else if ("waitFor" in step)
+    else if ("press" in step) {
+      if (Array.isArray(step.press)) await page.press(step.press[0], step.press[1]);
+      else await page.keyboard.press(step.press);
+    } else if ("waitFor" in step)
       await page.waitForSelector(step.waitFor, { state: "visible" });
-    else await page.waitForTimeout(step.waitMs);
+    else if ("hold" in step) {
+      // The target file refuses `hold` outside a state's steps.
+      if (!holds) throw new Error("hold is allowed only in a state's steps");
+      await startHold(page, step.hold, holds);
+    } else await page.waitForTimeout(step.waitMs);
   }
 }
 
@@ -246,7 +339,15 @@ async function measureMotion(
   return { noPreference, reduce };
 }
 
-type UnitResult = { axe: AxeUnit; measure: Measurements; console: ConsoleRecord };
+type UnitResult = {
+  axe: AxeUnit;
+  measure: Measurements;
+  console: ConsoleRecord;
+  note: string | null;
+};
+
+const OWN_AXE_NOTE =
+  "focusAfter is null: the page has its own window.axe, so the capture did not put axe-core into it before the state's steps";
 
 async function captureUnit(
   context: BrowserContext,
@@ -279,6 +380,8 @@ async function captureUnit(
       });
     }
   });
+  const holds: Hold[] = [];
+  let note: string | null = null;
   try {
     await page.goto(unit.url, { waitUntil: "load" });
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
@@ -291,18 +394,41 @@ async function captureUnit(
     // it is read, as `interactive` is described: with axe. So axe goes into the page here,
     // before those steps rather than after them, where it would hold up the reading, and
     // into any document they load.
+    // A page that has a window.axe of its own keeps it: nothing is put in, and focusAfter is
+    // not read with a library the capture does not know. The manifest says so.
+    let describeFocus = Boolean(unit.state);
     if (unit.state) {
-      const source = axeSource();
-      await page.addInitScript({ content: source });
-      await page.evaluate(source);
+      // Anything the page put there counts as its own, whatever its shape. What is not the
+      // page's value is an element with the id "axe" or a frame named "axe", which the
+      // browser also exposes as window.axe.
+      const ownAxe = await page.evaluate(() => {
+        try {
+          const found = (window as { axe?: unknown }).axe;
+          if (found === undefined) return false;
+          if (found instanceof Node || found instanceof HTMLCollection) return false;
+          if (Object.prototype.toString.call(found) === "[object Window]") return false;
+          return true;
+        } catch {
+          // Reading it threw, as a cross-origin frame does: a frame, not the page's value.
+          return false;
+        }
+      });
+      if (ownAxe) {
+        describeFocus = false;
+        note = OWN_AXE_NOTE;
+      } else {
+        const source = axeSource();
+        await page.addInitScript({ content: source });
+        await page.evaluate(source);
+      }
     }
-    await runSteps(page, base, steps.state);
+    await runSteps(page, base, steps.state, holds);
 
     const settled = await settle(page);
     // Evidence: what has focus once a named state's steps are done. Read until it has not
     // changed for 400 ms (at most 2 s), so a dialog that moves focus on the next frame, after
     // a timer or at the end of its transition is seen with focus inside it.
-    const focusAfter = unit.state
+    const focusAfter = describeFocus
       ? await page.evaluate(recordSteadyFocus, { steady: 400, limit: 2000 })
       : null;
 
@@ -322,12 +448,18 @@ async function captureUnit(
     });
     const focus = await walkFocus(page);
     const motion = await measureMotion(page, reducedMotion);
+    // Released only now: the whole unit was measured with its held requests in flight, and
+    // a press made during it shows as one more request, or not.
+    await releaseHolds(holds);
+    const held = heldEvidence(holds);
     return {
       axe,
-      measure: { settled, ...statics, focusAfter, focus, motion, layoutShift },
+      measure: { settled, ...statics, focusAfter, held, focus, motion, layoutShift },
       console: record,
+      note,
     };
   } finally {
+    await releaseHolds(holds).catch(() => undefined);
     await page.close();
   }
 }
@@ -360,6 +492,7 @@ async function main(): Promise<number> {
   let browser: Browser | null = null;
   const units: Unit[] = [];
   const failed: Manifest["failed"] = [];
+  const notes: Manifest["notes"] = [];
   const axeOut: Record<string, AxeUnit> = {};
   const measureOut: Record<string, Measurements> = {};
   const consoleOut: Record<string, ConsoleRecord> = {};
@@ -448,6 +581,7 @@ async function main(): Promise<number> {
                 axeOut[id] = result.axe;
                 measureOut[id] = result.measure;
                 consoleOut[id] = result.console;
+                if (result.note) notes.push({ id, note: result.note });
                 process.stdout.write(`captured ${id}\n`);
               } catch (error) {
                 failed.push({ id, error: (error as Error).message.split("\n")[0] ?? "" });
@@ -482,6 +616,7 @@ async function main(): Promise<number> {
     },
     units,
     failed,
+    notes,
   };
   const write = (name: string, value: unknown) =>
     writeFile(join(opts.out, name), `${JSON.stringify(value, null, 2)}\n`);

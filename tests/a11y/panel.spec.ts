@@ -327,3 +327,100 @@ test("clean.html: opening the panel again starts without the refusal", async ({
   await expect(person).not.toHaveAttribute("aria-invalid", /./);
   await expect(person).not.toHaveAttribute("aria-describedby", /./);
 });
+
+test.describe("clean.html, round 5", () => {
+  const SENTENCE = {
+    en: "Enter the start time as hours and minutes, for example 07:00.",
+    es: "Escribe la hora de inicio en horas y minutos, por ejemplo 07:00.",
+  } as const;
+
+  for (const lang of ["en", "es"] as const) {
+    for (const [what, value] of [
+      ["empty", ""],
+      ["malformed", "7 am"],
+      ["out of range", "25:00"],
+    ] as const) {
+      test(`Start time ${what} is refused like Person, tied to the field (${lang})`, async ({
+        page,
+      }) => {
+        await open(page, "clean.html", lang);
+        await openPanel(page);
+        const requests: string[] = [];
+        page.on("request", (request) => {
+          if (request.url().endsWith("/save.json")) requests.push(request.method());
+        });
+        await page.keyboard.type("Avery");
+        const start = page.locator("#shift-start");
+        await start.fill(value);
+        await page.focus("#save");
+        await page.keyboard.press("Enter");
+        await expect(start).toHaveAttribute("aria-invalid", "true");
+        await expect(start).toBeFocused();
+        const describedBy = (await start.getAttribute("aria-describedby")) ?? "";
+        const sentence = page.locator(`#${describedBy}`);
+        await expect(sentence).toHaveText(SENTENCE[lang]);
+        await expect(sentence).toHaveAttribute("role", "alert");
+        await expect(page.locator("#shift-person")).not.toHaveAttribute(
+          "aria-invalid",
+          /./,
+        );
+        await page.waitForTimeout(1400);
+        await expect(page.locator("#result")).toHaveText("");
+        expect(requests).toEqual([]);
+        await start.fill("07:30");
+        await expect(start).not.toHaveAttribute("aria-invalid", /./);
+        await expect(start).not.toHaveAttribute("aria-describedby", /./);
+        await expect(sentence).toHaveText("");
+        await page.keyboard.press("Enter");
+        await expect(page.locator("#result")).toHaveText(
+          lang === "en" ? "Shift saved." : "Turno guardado.",
+        );
+        expect(requests).toEqual(["POST"]);
+      });
+    }
+  }
+
+  test("with both fields wrong, both are marked and focus goes to Person first", async ({
+    page,
+  }) => {
+    await open(page, "clean.html");
+    await openPanel(page);
+    await page.locator("#shift-start").fill("");
+    await page.focus("#save");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#shift-person")).toBeFocused();
+    await expect(page.locator("#shift-person")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#shift-start")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("the refusal of Start time is cleared when the panel is opened again", async ({
+    page,
+  }) => {
+    await open(page, "clean.html");
+    await openPanel(page);
+    await page.keyboard.type("Avery");
+    await page.locator("#shift-start").fill("x");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#shift-start")).toHaveAttribute("aria-invalid", "true");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#panel")).toBeHidden();
+    await openPanel(page);
+    await expect(page.locator("#shift-start")).not.toHaveAttribute("aria-invalid", /./);
+    await expect(page.locator("#start-error")).toHaveText("");
+  });
+
+  test("a save that cannot reach the server says so and unlocks the form", async ({
+    page,
+  }) => {
+    await page.route("**/save.json", (route) => route.abort("failed"));
+    await open(page, "clean.html");
+    await openPanel(page);
+    await page.keyboard.type("Avery");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#result")).toHaveText(
+      "The shift was not saved. Try again.",
+    );
+    await expect(page.locator("#save")).not.toHaveAttribute("aria-busy", /./);
+    await expect(page.locator("#shift-person")).not.toHaveAttribute("readonly", /.*/);
+  });
+});

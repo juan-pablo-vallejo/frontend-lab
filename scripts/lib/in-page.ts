@@ -234,6 +234,8 @@ export function collectStatic(): Pick<
     "aria-busy",
     "aria-disabled",
     "disabled",
+    "readonly",
+    "aria-readonly",
     "aria-expanded",
     "aria-pressed",
     "aria-selected",
@@ -255,7 +257,9 @@ export function collectStatic(): Pick<
     for (const attribute of STATE_ATTRIBUTES) {
       if (!el.hasAttribute(attribute)) continue;
       states[attribute] =
-        attribute === "disabled" ? true : (el.getAttribute(attribute) ?? "");
+        attribute === "disabled" || attribute === "readonly"
+          ? true
+          : (el.getAttribute(attribute) ?? "");
     }
     const parentText = (el.parentElement?.textContent ?? "").trim();
     const ownText = (el.textContent ?? "").trim();

@@ -2,7 +2,15 @@ import type { Step, Target } from "./types.ts";
 
 export const DEFAULT_WIDTHS = [390, 768, 1280];
 
-const STEP_KINDS = ["goto", "click", "fill", "press", "waitFor", "waitMs"] as const;
+const STEP_KINDS = [
+  "goto",
+  "click",
+  "fill",
+  "press",
+  "waitFor",
+  "waitMs",
+  "hold",
+] as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -12,7 +20,13 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function checkSteps(value: unknown, where: string, errors: string[]): void {
+// `hold` lasts until the state's capture is taken, so it belongs to a state's steps only.
+function checkSteps(
+  value: unknown,
+  where: string,
+  errors: string[],
+  inState = false,
+): void {
   if (!Array.isArray(value)) {
     errors.push(`${where} must be an array of steps`);
     return;
@@ -25,9 +39,26 @@ function checkSteps(value: unknown, where: string, errors: string[]): void {
     }
     const [kind, arg] = Object.entries(step)[0] as [string, unknown];
     switch (kind) {
+      case "press":
+        if (
+          !isNonEmptyString(arg) &&
+          !(
+            Array.isArray(arg) &&
+            arg.length === 2 &&
+            isNonEmptyString(arg[0]) &&
+            isNonEmptyString(arg[1])
+          )
+        ) {
+          errors.push(`${at}.press must be a key or [selector, key]`);
+        }
+        break;
+      case "hold":
+        if (!inState) errors.push(`${at}.hold is allowed only in a state's steps`);
+        else if (!isNonEmptyString(arg))
+          errors.push(`${at}.hold must be a non-empty URL glob`);
+        break;
       case "goto":
       case "click":
-      case "press":
       case "waitFor":
         if (!isNonEmptyString(arg))
           errors.push(`${at}.${kind} must be a non-empty string`);
@@ -174,7 +205,7 @@ export function validateTarget(value: unknown): string[] {
             errors.push(`states[${index}].routes must name routes of this target`);
           }
         }
-        checkSteps(state.steps, `states[${index}].steps`, errors);
+        checkSteps(state.steps, `states[${index}].steps`, errors, true);
       });
     }
   }

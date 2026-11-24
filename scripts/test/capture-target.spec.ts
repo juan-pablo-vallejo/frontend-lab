@@ -82,3 +82,46 @@ test("loopback means localhost, 127.0.0.1 and [::1] only, as the proxy bypass do
     expect(result.stderr, host).toContain("not a loopback address");
   }
 });
+
+test.describe("staging steps in the target file", () => {
+  const base = {
+    name: "t",
+    baseUrl: "http://127.0.0.1:9",
+    routes: [{ id: "r", path: "/" }],
+  };
+  const withState = (steps: unknown[]) => ({ ...base, states: [{ id: "s", steps }] });
+
+  test("press takes a key for the focused element, or [selector, key]", async () => {
+    const { validateTarget } = await import("../lib/target.ts");
+    expect(validateTarget(withState([{ press: "Enter" }]))).toEqual([]);
+    expect(validateTarget(withState([{ press: ["#field", "Enter"] }]))).toEqual([]);
+    for (const bad of [
+      [],
+      ["#field"],
+      ["#field", ""],
+      ["", "Enter"],
+      ["#a", "Enter", 1],
+      3,
+    ]) {
+      expect(validateTarget(withState([{ press: bad }])), JSON.stringify(bad)).toEqual([
+        "states[0].steps[0].press must be a key or [selector, key]",
+      ]);
+    }
+  });
+
+  test("hold takes a URL glob, in a state's steps only", async () => {
+    const { validateTarget } = await import("../lib/target.ts");
+    expect(validateTarget(withState([{ hold: "**/save.json" }]))).toEqual([]);
+    for (const bad of ["", "  ", 3, ["**/x"]]) {
+      expect(validateTarget(withState([{ hold: bad }])), JSON.stringify(bad)).toEqual([
+        "states[0].steps[0].hold must be a non-empty URL glob",
+      ]);
+    }
+    expect(validateTarget({ ...base, signIn: [{ hold: "**/x" }] })).toEqual([
+      "signIn[0].hold is allowed only in a state's steps",
+    ]);
+    expect(
+      validateTarget({ ...base, languages: [{ id: "en", steps: [{ hold: "**/x" }] }] }),
+    ).toEqual(["languages[0].steps[0].hold is allowed only in a state's steps"]);
+  });
+});

@@ -33,6 +33,29 @@
         { "waitMs": 1600 }
       ]
     },
-    { "id": "empty", "steps": [{ "fill": ["#filter", "zzz"] }, { "waitMs": 200 }] }
+    { "id": "empty", "steps": [{ "fill": ["#filter", "zzz"] }, { "waitMs": 200 }] },
+    {
+      "id": "pending",
+      "routes": ["clean"],
+      "steps": [
+        { "click": "#add-shift" },
+        { "waitFor": "#panel" },
+        { "fill": ["#shift-person", "Avery"] },
+        { "hold": "**/save.json" },
+        { "click": "#save" },
+        { "waitFor": "#save[aria-busy='true']" },
+        { "click": "#save" }
+      ]
+    },
+    {
+      "id": "refused",
+      "routes": ["clean"],
+      "steps": [
+        { "click": "#add-shift" },
+        { "waitFor": "#panel" },
+        { "waitFor": "#shift-person:focus" },
+        { "press": "Enter" }
+      ]
+    }
   ]
 }

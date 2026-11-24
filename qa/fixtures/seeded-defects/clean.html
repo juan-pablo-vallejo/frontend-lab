@@ -188,6 +188,7 @@
     <p class="field-error" id="person-error" role="alert"></p>
     <label for="shift-start" data-i18n="start">Start time</label>
     <input id="shift-start" type="text" value="07:00" autocomplete="off">
+    <p class="field-error" id="start-error" role="alert"></p>
     <button type="submit" class="primary" id="save" data-i18n="save">Save</button>
   </form>
   <p class="result" id="result" role="status"></p>
@@ -199,6 +200,8 @@
       title: "Crew today", heading: "Crew today", chip: "Day crew", asOf: "As of 09:41",
       planned: "Planned as of 09:41", final: "Final as of 18:00",
       required: "Enter the person's name.",
+      badStart: "Enter the start time as hours and minutes, for example 07:00.",
+      failed: "The shift was not saved. Try again.",
       prev: "Previous day", next: "Next day", filter: "Filter by name", add: "Add shift",
       helper: "Statuses refresh every few minutes.", panelTitle: "New shift", close: "Close",
       person: "Person", start: "Start time", save: "Save", saving: "Saving…",
@@ -211,6 +214,8 @@
       title: "Equipo de hoy", heading: "Equipo de hoy", chip: "Cuadrilla del turno de día", asOf: "A las 09:41",
       planned: "Previsto a las 09:41", final: "Cerrado a las 18:00",
       required: "Escribe el nombre de la persona.",
+      badStart: "Escribe la hora de inicio en horas y minutos, por ejemplo 07:00.",
+      failed: "El turno no se guardó. Inténtalo de nuevo.",
       prev: "Día anterior", next: "Día siguiente", filter: "Filtrar por nombre", add: "Añadir turno",
       helper: "Los estados se actualizan cada pocos minutos.", panelTitle: "Nuevo turno", close: "Cerrar",
       person: "Persona", start: "Hora de inicio", save: "Guardar", saving: "Guardando…",
@@ -324,28 +329,41 @@
   });
 
   const personError = document.getElementById("person-error");
-  function clearRequired() {
-    personError.textContent = "";
-    person.removeAttribute("aria-invalid");
-    person.removeAttribute("aria-describedby");
-  }
   const start = document.getElementById("shift-start");
-  function showRequired() {
-    personError.textContent = t.required;
-    person.setAttribute("aria-invalid", "true");
-    person.setAttribute("aria-describedby", "person-error");
-    person.focus();
+  const startError = document.getElementById("start-error");
+  // Hours 0 to 23 and two digits of minutes: 7:00, 07:00, 23:59.
+  const wellFormed = (value) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(value.trim());
+  function refuse(field, error, sentence) {
+    error.textContent = sentence;
+    field.setAttribute("aria-invalid", "true");
+    field.setAttribute("aria-describedby", error.id);
+  }
+  function accept(field, error) {
+    error.textContent = "";
+    field.removeAttribute("aria-invalid");
+    field.removeAttribute("aria-describedby");
+  }
+  function clearRequired() {
+    accept(person, personError);
+    accept(start, startError);
   }
   form.addEventListener("input", () => {
     if (!pending) clearResult();
-    if (personError.textContent && person.value.trim()) clearRequired();
+    if (personError.textContent && person.value.trim()) accept(person, personError);
+    if (startError.textContent && wellFormed(start.value)) accept(start, startError);
   });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (pending) return;
-    if (!person.value.trim()) {
-      showRequired();
+    const personOk = Boolean(person.value.trim());
+    const startOk = wellFormed(start.value);
+    if (personOk) accept(person, personError);
+    else refuse(person, personError, t.required);
+    if (startOk) accept(start, startError);
+    else refuse(start, startError, t.badStart);
+    if (!personOk || !startOk) {
+      (personOk ? start : person).focus();
       return;
     }
     pending = true;
@@ -355,16 +373,27 @@
     closeButton.setAttribute("aria-disabled", "true");
     save.textContent = t.saving;
     clearResult();
-    setTimeout(() => {
+    // A real request to the page's own server, answered no sooner than 1.2 s.
+    const sent = fetch("save.json", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ person: person.value.trim(), start: start.value.trim() })
+    }).then((response) => {
+      if (!response.ok) throw new Error("not saved");
+    });
+    const atLeast = new Promise((done) => setTimeout(done, 1200));
+    const finish = (ok) => {
       pending = false;
       person.readOnly = false;
       start.readOnly = false;
       save.removeAttribute("aria-busy");
       closeButton.removeAttribute("aria-disabled");
       save.textContent = t.save;
-      result.className = "result ok";
-      result.textContent = t.saved;
-    }, 1200);
+      result.className = ok ? "result ok" : "result fail";
+      result.textContent = ok ? t.saved : t.failed;
+    };
+    Promise.all([sent, atLeast]).then(() => finish(true), () => atLeast.then(() => finish(false)));
   });
 
   window.addEventListener("load", () => {

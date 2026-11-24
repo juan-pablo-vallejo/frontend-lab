@@ -267,6 +267,8 @@ async function main(): Promise<number> {
         );
       }
     }
+    // A capture made before notes existed has none.
+    for (const n of manifest.notes ?? []) notices.push(`${n.id}: ${n.note}`);
     failed = manifest.failed.map((f) => f.id);
   } catch (error) {
     if (error instanceof Unreadable) {
