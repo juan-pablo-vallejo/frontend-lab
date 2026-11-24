@@ -10,6 +10,8 @@ export default tseslint.config(
     "test-results/**",
     "playwright-report/**",
     "**/storybook-static/**",
+    "**/dist/**",
+    "**/.expo/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

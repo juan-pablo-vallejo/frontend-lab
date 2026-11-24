@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Native lab",
+    "slug": "native-lab",
+    "version": "0.0.0",
+    "scheme": "nativelab",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.example.nativelab"
+    },
+    "android": {
+      "package": "com.example.nativelab"
+    },
+    "plugins": ["expo-router"]
+  }
+}

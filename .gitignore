@@ -10,3 +10,18 @@ captures/
 *.log
 *.tsbuildinfo
 .DS_Store
+# Expo: generated native projects, typed-route stubs, and signing or account files
+apps/native-lab/ios/
+apps/native-lab/android/
+web-build/
+expo-env.d.ts
+credentials.json
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.key
+*.pem
+google-services.json
+GoogleService-Info.plist

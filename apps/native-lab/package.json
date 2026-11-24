@@ -1,0 +1,29 @@
+{
+  "name": "native-lab",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "EXPO_NO_TELEMETRY=1 expo start",
+    "export:ios": "EXPO_NO_TELEMETRY=1 expo export --platform ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "58.0.17",
+    "expo": "58.0.26",
+    "expo-constants": "58.0.16",
+    "expo-linking": "58.0.17",
+    "expo-router": "58.0.32",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "5.11.1",
+    "react-native-screens": "4.30.1"
+  },
+  "devDependencies": {
+    "@frontend-lab/tokens": "workspace:*",
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -20,6 +20,7 @@
     "packages/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "apps/native-lab/test/**/*.ts",
     "playwright.config.ts"
   ]
 }

@@ -8,14 +8,14 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/web-lab",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/web-lab && tsc --noEmit -p apps/native-lab",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "validate": "scripts/validate",
     "guard": "scripts/guard",
     "build:stories": "pnpm --filter web-lab build-storybook",
-    "test:packages": "playwright test --project=packages",
+    "test:packages": "playwright test --project=packages --project=native-lab",
     "test:scripts": "playwright test --project=scripts",
     "test:a11y": "playwright test --project=a11y",
     "test:components": "playwright test --project=components",

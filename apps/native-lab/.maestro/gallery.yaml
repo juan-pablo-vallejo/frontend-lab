@@ -1,0 +1,68 @@
+# Opens the gallery and each of its entries by deep link, and takes one screenshot of each.
+# Written, not yet run: it needs a development build of this app on a simulator or emulator.
+# Run locally only (never a cloud run), from apps/native-lab:
+#   MAESTRO_CLI_NO_ANALYTICS=true maestro test .maestro/gallery.yaml
+appId: com.example.nativelab
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: gallery-index
+    timeout: 20000
+- takeScreenshot: index
+
+- openLink: nativelab://pressable/idle
+- extendedWaitUntil:
+    visible:
+      id: pressable-idle
+    timeout: 10000
+- takeScreenshot: pressable-idle
+
+- openLink: nativelab://pressable/pressed
+- extendedWaitUntil:
+    visible:
+      id: pressable-pressed
+    timeout: 10000
+- takeScreenshot: pressable-pressed
+
+- openLink: nativelab://pressable/disabled
+- extendedWaitUntil:
+    visible:
+      id: pressable-disabled
+    timeout: 10000
+- takeScreenshot: pressable-disabled
+
+- openLink: nativelab://pressable/busy
+- extendedWaitUntil:
+    visible:
+      id: pressable-busy
+    timeout: 10000
+- takeScreenshot: pressable-busy
+
+- openLink: nativelab://status-chip/saved
+- extendedWaitUntil:
+    visible:
+      id: status-chip-saved
+    timeout: 10000
+- takeScreenshot: status-chip-saved
+
+- openLink: nativelab://status-chip/sending
+- extendedWaitUntil:
+    visible:
+      id: status-chip-sending
+    timeout: 10000
+- takeScreenshot: status-chip-sending
+
+- openLink: nativelab://status-chip/sent
+- extendedWaitUntil:
+    visible:
+      id: status-chip-sent
+    timeout: 10000
+- takeScreenshot: status-chip-sent
+
+- openLink: nativelab://status-chip/attention
+- extendedWaitUntil:
+    visible:
+      id: status-chip-attention
+    timeout: 10000
+- takeScreenshot: status-chip-attention

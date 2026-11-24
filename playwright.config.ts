@@ -20,6 +20,7 @@ export default defineConfig({
   projects: [
     { name: "packages", testDir: "packages", testMatch: "*/test/**/*.spec.ts" },
     { name: "scripts", testDir: "scripts/test", timeout: 60_000 },
+    { name: "native-lab", testDir: "apps/native-lab/test" },
     { name: "a11y", testDir: "tests/a11y" },
     { name: "components", testDir: "tests/components" },
     { name: "visual", testDir: "tests/visual" },
