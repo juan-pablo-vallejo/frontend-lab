@@ -285,13 +285,13 @@ names no machine: the SSH alias and the folder there come from `FRONTEND_LAB_WS_
 SSH alias and the folder a plain relative folder under that account's home (no `/` at the
 start, no `..`); anything else exits 2.
 
-| Action | Does                                                                                                                                                                      |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `send` | Makes or clears the folder (only one that carries its marker `.frontend-lab-ws`, or an empty one), sends the tracked files with rsync, installs the packages and Chromium |
-| `refs` | Writes reference images there, then copies `visual-refs/` here to commit                                                                                                  |
-| `run`  | Compares against the references there                                                                                                                                     |
-| `test` | Runs typecheck, the script tests except the guard's (`--grep-invert guard\.spec\.ts`: no gitleaks there, by design) and the accessibility tests there                     |
-| `pull` | Copies the test results here, outside the repository                                                                                                                      |
+| Action | Does                                                                                                                                                                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `send` | Makes or clears the folder (only one that carries its marker `.frontend-lab-ws`, or an empty one), sends the tracked files with rsync, installs the packages and Chromium                                                                                                |
+| `refs` | Builds the stories, writes reference images there, then copies `visual-refs/` here to commit                                                                                                                                                                             |
+| `run`  | Builds the stories and compares against the references there                                                                                                                                                                                                             |
+| `test` | Runs there what `pnpm check` runs except lint, format, validate and guard: typecheck, the package tests, the script tests except the guard's (`--grep-invert guard\.spec\.ts`: no gitleaks there, by design), the story build, the accessibility and the component tests |
+| `pull` | Copies the test results here, outside the repository                                                                                                                                                                                                                     |
 
 `refs`, `run`, `test` and `pull` first check, there, that the folder carries the marker,
 and stop with exit 3 and one line when it does not: nothing runs there and nothing is copied

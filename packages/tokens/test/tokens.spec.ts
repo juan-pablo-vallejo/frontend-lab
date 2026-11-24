@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { durations, easings } from "@frontend-lab/motion";
 import { renderCss } from "../src/css.ts";
 import {
+  borderWidth,
   breakpoints,
   color,
   motion,
@@ -10,6 +11,7 @@ import {
   semanticColor,
   space,
   target,
+  width,
 } from "../src/tokens.ts";
 
 const cssFile = new URL("../tokens.css", import.meta.url);
@@ -63,6 +65,16 @@ test("motion comes from packages/motion, in TypeScript and in CSS", () => {
   }
   for (const [name, value] of Object.entries(easings)) {
     expect(css).toContain(`--lab-easing-${name}: ${value};`);
+  }
+});
+
+test("line and surface widths are written in CSS, surfaces on the 4 px grid", () => {
+  const css = renderCss();
+  expect(borderWidth).toBe(1);
+  expect(css).toContain("--lab-border-width: 1px;");
+  for (const [name, px] of Object.entries(width)) {
+    expect(px % 4, `width ${name}`).toBe(0);
+    expect(css).toContain(`--lab-width-${name}: ${px}px;`);
   }
 });
 

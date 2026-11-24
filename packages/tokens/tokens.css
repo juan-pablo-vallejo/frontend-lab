@@ -61,6 +61,11 @@
   --lab-font-size-xxl: 2rem;
   --lab-line-height-xxl: 2.5rem;
 
+  /* Line and surface widths */
+  --lab-border-width: 1px;
+  --lab-width-message: 400px;
+  --lab-width-panel: 480px;
+
   /* Shadows */
   --lab-shadow-sm: 0 1px 2px 0 rgb(23 26 31 / 0.12);
   --lab-shadow-md: 0 2px 6px 0 rgb(23 26 31 / 0.12), 0 1px 2px 0 rgb(23 26 31 / 0.08);

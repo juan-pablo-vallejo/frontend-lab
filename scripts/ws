@@ -9,7 +9,7 @@
 #   scripts/ws send    send the tracked files, install the packages and the browser
 #   scripts/ws refs    write reference images there, then bring them here to commit
 #   scripts/ws run     compare against the references there
-#   scripts/ws test    run the script and accessibility tests there
+#   scripts/ws test    run the package, script, accessibility and component tests there
 #   scripts/ws pull    bring the test results here, outside the repository
 #   --print            as the first argument: print the commands instead of running them
 #
@@ -92,18 +92,19 @@ case "$action" in
     remote "pnpm install --frozen-lockfile && pnpm exec playwright install chromium"
     ;;
   refs)
-    remote "VISUAL_REFS=1 pnpm test:visual --update-snapshots"
+    remote "pnpm build:stories && VISUAL_REFS=1 pnpm test:visual --update-snapshots"
     run mkdir -p "$root/visual-refs"
     run rsync -a "$host:$dir/visual-refs/" "$root/visual-refs/"
     ;;
   run)
-    remote "VISUAL_REFS=1 pnpm test:visual"
+    remote "pnpm build:stories && VISUAL_REFS=1 pnpm test:visual"
     ;;
   test)
     # The guard's tests need gitleaks, which the comparison machine does not have, by design
     # (no credential tooling there): Playwright matches --grep-invert against "project file
-    # describe title", so this leaves out every test in scripts/test/guard.spec.ts.
-    remote "pnpm typecheck && pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts && pnpm test:a11y"
+    # describe title", so this leaves out every test in scripts/test/guard.spec.ts. The rest is
+    # what pnpm check runs, without lint, format, validate and guard.
+    remote "pnpm typecheck && pnpm test:packages && pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts && pnpm build:stories && pnpm test:a11y && pnpm test:components"
     ;;
   pull)
     run ssh -o BatchMode=yes "$host" "$marker"

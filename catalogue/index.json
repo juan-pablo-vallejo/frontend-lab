@@ -1,0 +1,25 @@
+{
+  "components": [
+    {
+      "id": "busy-button",
+      "name": "Busy button",
+      "status": "experimental",
+      "purpose": "A button for an action that takes time. While its promise is pending it names the act, says aria-busy, keeps focus and takes no second press; it reports the outcome to its parent only once the promise settles.",
+      "file": "catalogue/components/busy-button.yaml"
+    },
+    {
+      "id": "command-list",
+      "name": "Command list",
+      "status": "experimental",
+      "purpose": "A filter field with a list of results, as a combobox with a listbox popup (WAI-ARIA Authoring Practices combobox pattern). Focus stays in the field; one active option, set by keys and by pointer movement alike, is the one highlighted and the one Enter runs.",
+      "file": "catalogue/components/command-list.yaml"
+    },
+    {
+      "id": "toast-undo",
+      "name": "Toast with Undo",
+      "status": "experimental",
+      "purpose": "A message that an action happened, with Undo, shown for a set time (7 s by default) in a polite status region, above everything in the page an open modal dialog included. A refusal takes its place and stays until dismissed.",
+      "file": "catalogue/components/toast-undo.yaml"
+    }
+  ]
+}

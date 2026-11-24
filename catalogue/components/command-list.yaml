@@ -1,0 +1,63 @@
+id: command-list
+name: Command list
+purpose: A filter field with a list of results, as a combobox with a listbox popup (WAI-ARIA Authoring Practices combobox pattern). Focus stays in the field; one active option, set by keys and by pointer movement alike, is the one highlighted and the one Enter runs.
+platforms: [web]
+status: experimental
+dependencies:
+  - name: react
+    version: 19.3.1
+provenance:
+  source: original
+  changes: written here
+variants:
+  - closed
+  - open with few results
+  - open with enough results to scroll
+  - active option at the end
+  - empty
+accessibility:
+  role: An input with role combobox, aria-autocomplete list, aria-expanded, aria-controls naming the listbox and aria-activedescendant naming the active option; a listbox of options, the active one with aria-selected true; a status region, drawn (empty, on a reserved line) from the start, saying how many results are shown, or that none match.
+  keyboard:
+    ArrowDown: opens the list with the first option active; when open, the next option
+    ArrowUp: opens the list with the last option active; when open, the previous option
+    Alt+ArrowDown: opens the list without moving the active option
+    Home: while the list is open, the first option; closed, the caret to the start
+    End: while the list is open, the last option; closed, the caret to the end
+    Enter: runs the active option and closes the list
+    Escape: closes the open list; when closed, empties the field; closed and empty, it is left to the page (a dialog around the field closes)
+    Tab: closes the list and moves on
+  reduced_motion: Nothing animates; the active option changes at once in every setting.
+  scan: No axe violation (WCAG 2.0 to 2.2 A and AA tags) in each of its five stories at 390 and 1280 px (tests/a11y/stories.spec.ts).
+motion_tokens: {}
+tests:
+  stories:
+    - command-list--closed
+    - command-list--open-with-few-results
+    - command-list--open-with-enough-results-to-scroll
+    - command-list--active-option-at-the-end
+    - command-list--empty
+  aria_snapshot: Not taken. tests/components/command-list.spec.ts asserts the roles, aria-expanded, aria-activedescendant and aria-selected directly.
+  visual_references:
+    - visual-refs/stories.spec.ts/command-list--closed-390.png
+    - visual-refs/stories.spec.ts/command-list--closed-1280.png
+    - visual-refs/stories.spec.ts/command-list--open-with-few-results-390.png
+    - visual-refs/stories.spec.ts/command-list--open-with-few-results-1280.png
+    - visual-refs/stories.spec.ts/command-list--open-with-enough-results-to-scroll-390.png
+    - visual-refs/stories.spec.ts/command-list--open-with-enough-results-to-scroll-1280.png
+    - visual-refs/stories.spec.ts/command-list--active-option-at-the-end-390.png
+    - visual-refs/stories.spec.ts/command-list--active-option-at-the-end-1280.png
+    - visual-refs/stories.spec.ts/command-list--empty-390.png
+    - visual-refs/stories.spec.ts/command-list--empty-1280.png
+screenshots: []
+known_limitations:
+  - Home and End move the active option while the list is open, as command palettes do; the pattern's own examples keep them for the caret. Closed, they move the caret.
+  - Filtering is a case-insensitive substring match on the label only.
+  - The list opens on a click in the field as well as on typing and the arrow keys.
+  - The list's height is six target heights (calc on --lab-target), not a token of its own.
+  - Checked in Chromium only.
+changelog:
+  - date: 2026-11-24
+    change: First version, with five stories, an accessibility scan of each and component tests.
+  - date: 2026-11-24
+    change: After review, the status region stays drawn while empty, Escape is taken only when it acts, and the few-results story fits without scrolling.
+recipe: Keep the query, open and the active option's id in state, and derive the shown results and the active option from them (the first result when the stored id is not among them), so the highlight, aria-selected and aria-activedescendant cannot disagree. Set the active id on pointermove over a row, not on pointerenter, so a row scrolled under a still pointer does not take over. Prevent pointerdown on the listbox so focus stays in the field. After each render scroll the listbox itself (scrollTop, not scrollIntoView) so the active row is wholly inside it. Draw the active row with the accent fill and everything in it in the on-accent colour; it takes no focus ring. Say the count, or the empty sentence, in a status region present from the start, and offer a Clear filter button while the field holds text.

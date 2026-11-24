@@ -1,0 +1,110 @@
+.root {
+  display: grid;
+  gap: var(--lab-space-2);
+  max-width: var(--lab-width-panel);
+}
+
+.label {
+  font-weight: bold;
+}
+
+.fieldRow {
+  display: flex;
+  gap: var(--lab-space-2);
+}
+
+.field,
+.clear {
+  box-sizing: border-box;
+  min-height: var(--lab-target);
+  border: var(--lab-border-width) solid var(--lab-border);
+  border-radius: var(--lab-radius-md);
+  background: var(--lab-surface);
+  color: var(--lab-text);
+  font: inherit;
+  font-size: var(--lab-font-size-md);
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--lab-space-3);
+}
+
+.field::placeholder {
+  color: var(--lab-text-muted);
+}
+
+.clear {
+  flex: none;
+  padding: 0 var(--lab-space-3);
+  cursor: pointer;
+}
+
+.field:focus-visible,
+.clear:focus-visible {
+  outline: var(--lab-focus-ring-width) solid var(--lab-focus-ring);
+  outline-offset: var(--lab-focus-ring-offset);
+}
+
+.popup {
+  display: grid;
+  gap: var(--lab-space-2);
+}
+
+/* Drawn while empty, so the region is in the accessibility tree before its text arrives;
+   its line is reserved, so the count takes it without moving what is below. */
+.status {
+  min-height: var(--lab-line-height-sm);
+  margin: 0;
+  color: var(--lab-text-muted);
+  font-size: var(--lab-font-size-sm);
+  line-height: var(--lab-line-height-sm);
+}
+
+/* Six target-tall rows before it scrolls; rows with a second line are taller, so the last
+   one shown is cut, which tells that there is more. */
+.list {
+  position: relative;
+  max-height: calc(var(--lab-target) * 6);
+  margin: 0;
+  padding: var(--lab-space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--lab-border-width) solid var(--lab-border);
+  border-radius: var(--lab-radius-md);
+  background: var(--lab-surface);
+  list-style: none;
+}
+
+.list[hidden] {
+  display: none;
+}
+
+.option {
+  display: grid;
+  align-content: center;
+  min-height: var(--lab-target);
+  padding: var(--lab-space-1) var(--lab-space-3);
+  border-radius: var(--lab-radius-sm);
+  color: var(--lab-text);
+  cursor: pointer;
+}
+
+.detail {
+  color: var(--lab-text-muted);
+  font-size: var(--lab-font-size-sm);
+  line-height: var(--lab-line-height-sm);
+}
+
+/* The active option: the accent fill, and everything in the row in the on-accent colour,
+   the second line included. It takes no focus ring: focus stays in the field. */
+.option[aria-selected="true"],
+.option[aria-selected="true"] .detail {
+  background: var(--lab-accent);
+  color: var(--lab-on-accent);
+}
+
+.option[aria-selected="true"] .detail {
+  background: transparent;
+}

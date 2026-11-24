@@ -9,11 +9,12 @@ export default tseslint.config(
     "visual-refs/**",
     "test-results/**",
     "playwright-report/**",
+    "**/storybook-static/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },

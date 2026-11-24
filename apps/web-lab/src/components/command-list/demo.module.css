@@ -1,0 +1,9 @@
+/* The story's own page around the list: not part of the component. */
+.page {
+  display: grid;
+  gap: var(--lab-space-3);
+}
+
+.result {
+  min-height: var(--lab-line-height-md);
+}

@@ -1,0 +1,63 @@
+id: toast-undo
+name: Toast with Undo
+purpose: A message that an action happened, with Undo, shown for a set time (7 s by default) in a polite status region, above everything in the page an open modal dialog included. A refusal takes its place and stays until dismissed.
+platforms: [web]
+status: experimental
+dependencies:
+  - name: react
+    version: 19.3.1
+  - name: react-dom
+    version: 19.3.1
+provenance:
+  source: original
+  changes: written here
+variants:
+  - shown, focus left where the action left it
+  - shown, focus moved to Undo because the action left it on the body
+  - over an open modal dialog
+  - refused
+  - reduced motion (an in-app setting; the system setting does the same)
+accessibility:
+  role: A manual popover (the top layer) holding a status region (role status, polite) that is in the page, empty, before any message; the message, Undo and the close button are inserted into it. The close button is named by its dismissLabel prop.
+  keyboard:
+    Ctrl+Z or Cmd+Z: Undo, while Undo is offered and focus is not in a text field (there the keys undo typing)
+    Escape: with focus inside the toast, dismisses it; an open dialog around it stays open
+    Tab: reaches Undo and the close button
+    Enter or Space: on Undo or the close button, presses it
+  reduced_motion: Under prefers-reduced-motion reduce, or with the motion prop set to reduce, entrance and exit are an opacity fade only; no transform is set or animated.
+  scan: No axe violation (WCAG 2.0 to 2.2 A and AA tags) in each of its five stories at 390 and 1280 px (tests/a11y/stories.spec.ts).
+motion_tokens:
+  entrance: --lab-duration-medium-in with --lab-easing-enter, on opacity and transform (translateY from --lab-space-2)
+  exit: --lab-duration-medium-out with --lab-easing-exit, on opacity and transform; the element is removed after durations.mediumOut from packages/motion
+tests:
+  stories:
+    - toast-with-undo--shown
+    - toast-with-undo--focus-moved-to-undo
+    - toast-with-undo--over-an-open-dialog
+    - toast-with-undo--refused
+    - toast-with-undo--reduced-motion
+  aria_snapshot: Not taken. tests/components/toast-undo.spec.ts asserts the region, the names, focus and the shortcut directly.
+  visual_references:
+    - visual-refs/stories.spec.ts/toast-with-undo--shown-390.png
+    - visual-refs/stories.spec.ts/toast-with-undo--shown-1280.png
+    - visual-refs/stories.spec.ts/toast-with-undo--focus-moved-to-undo-390.png
+    - visual-refs/stories.spec.ts/toast-with-undo--focus-moved-to-undo-1280.png
+    - visual-refs/stories.spec.ts/toast-with-undo--over-an-open-dialog-390.png
+    - visual-refs/stories.spec.ts/toast-with-undo--over-an-open-dialog-1280.png
+    - visual-refs/stories.spec.ts/toast-with-undo--refused-390.png
+    - visual-refs/stories.spec.ts/toast-with-undo--refused-1280.png
+    - visual-refs/stories.spec.ts/toast-with-undo--reduced-motion-390.png
+    - visual-refs/stories.spec.ts/toast-with-undo--reduced-motion-1280.png
+screenshots: []
+known_limitations:
+  - A modal dialog makes everything outside it inert, even what is drawn above it in the top layer, so while a modal dialog is open the toast is moved into that dialog (a portal). On every such move the region is made again, empty and open, and the card is inserted into it a frame later; a message showing when a dialog opens or closes keeps its timer but is inserted once more, so it may be announced once more, and its entrance plays again.
+  - The exit runs on a timer of durations.mediumOut, not on transitionend, so focus and removal never wait for an event that may not come.
+  - One message at a time; a new message replaces the one showing. There is no queue.
+  - The close button is an icon named by aria-label; its visible label is the cross.
+  - Checked in Chromium only.
+changelog:
+  - date: 2026-11-24
+    change: First version, with five stories, an accessibility scan of each and component tests.
+  - date: 2026-11-24
+    change: After review, focus on closing falls back to where it came from, then to a caller's fallback, never the body; a region made on a dialog change gets its card a frame later; timer tests run on a stopped clock.
+recipe: A popover="manual" element shown on mount and kept open, see-through and taking no pointer input, holding a role="status" region; the message card is inserted into the region. Raise it (hide and show again) when a new message arrives and focus is not inside it. While a modal dialog is open, portal the popover into the topmost one, found by :modal and kept current with a MutationObserver on the open attribute. On a new message, focus the first button when focus is on the body. Time it with setTimeout over the remaining time, stopped on pointerenter and focus inside, restarted on pointerleave and focus leaving. Listen on the document for Ctrl or Cmd plus Z unless the target is a text field. On Escape inside, prevent the default so a surrounding dialog stays open. Animate with @starting-style for entry and a data-leaving attribute for exit, opacity and transform only, from the motion tokens; under reduced motion keep opacity only. When it closes with focus inside, give focus to the first of returnFocusTo, where focus came from and fallbackFocusTo that really takes it (check document.activeElement after focus()), never the body. Draw the card only a frame after its region was made, so a message never arrives together with its region.

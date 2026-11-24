@@ -103,6 +103,17 @@ export const shadow = {
   ],
 } as const satisfies Record<string, readonly ShadowLayer[]>;
 
+/** The width of a drawn line: a control border, a divider. */
+export const borderWidth = 1;
+
+/** The widest a contained surface grows, in px, so a line of its text stays readable. */
+export const width = {
+  /** A transient message such as a toast. */
+  message: 400,
+  /** A panel holding a field and its results, such as a command list. */
+  panel: 480,
+} as const;
+
 /** Stacking layers (z-index), lowest first. */
 export const layer = {
   base: 0,

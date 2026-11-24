@@ -1,0 +1,9 @@
+/* The page every story is drawn on: the reference tokens and nothing else. */
+body {
+  margin: 0;
+  background: var(--lab-surface);
+  color: var(--lab-text);
+  font-family: system-ui, sans-serif;
+  font-size: var(--lab-font-size-md);
+  line-height: var(--lab-line-height-md);
+}

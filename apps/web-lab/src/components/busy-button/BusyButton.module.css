@@ -1,0 +1,23 @@
+.button {
+  min-width: var(--lab-target);
+  min-height: var(--lab-target);
+  padding: var(--lab-space-2) var(--lab-space-4);
+  border: var(--lab-border-width) solid var(--lab-accent);
+  border-radius: var(--lab-radius-md);
+  background: var(--lab-accent);
+  color: var(--lab-on-accent);
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* The ring is the accent colour, as is the fill: drawn at an offset, on the surface around
+   the button, it is visible; drawn on the fill, it would not be. */
+.button:focus-visible {
+  outline: var(--lab-focus-ring-width) solid var(--lab-focus-ring);
+  outline-offset: var(--lab-focus-ring-offset);
+}
+
+.button[aria-busy="true"] {
+  cursor: progress;
+}

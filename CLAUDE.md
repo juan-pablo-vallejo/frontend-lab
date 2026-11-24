@@ -26,7 +26,8 @@ A push cannot be taken back. Before anything is committed:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm check                        # typecheck, lint, format, validate, guard, script tests, accessibility
+pnpm check                        # typecheck, lint, format, validate, guard, package and script tests,
+                                  # the story build, accessibility, components
 scripts/capture --target <file> --out <dir> [--only <route>] [--reduced-motion]
 scripts/measure --in <dir> [--standards <file>]
 scripts/validate [--write]        # --write regenerates the indexes

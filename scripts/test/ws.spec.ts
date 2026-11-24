@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { removeTempDirs, repoRoot, runScript, tempDir } from "./helpers.ts";
 
@@ -116,12 +116,33 @@ test("refs, run, test and pull first require the marker there, and refs copies n
   expect(refs.findIndex((l) => l.startsWith("rsync "))).toBeGreaterThan(0);
 });
 
-test("test runs typecheck, the script tests without the guard's, then accessibility", async () => {
+test("test runs what pnpm check runs, without lint, format, validate, guard or the guard's tests", async () => {
   const result = await ws(["test"]);
   const [line = ""] = result.stdout.trim().split("\n");
   expect(line).toContain(
-    "pnpm typecheck && pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts && pnpm test:a11y",
+    "pnpm typecheck && pnpm test:packages && pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts && pnpm build:stories && pnpm test:a11y && pnpm test:components",
   );
+  const check = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")) as {
+    scripts: { check: string };
+  };
+  const steps = check.scripts.check
+    .split(" && ")
+    .filter((step) => !/^pnpm (lint|format:check|validate|guard)$/.test(step))
+    .map((step) =>
+      step === "pnpm test:scripts"
+        ? "pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts"
+        : step,
+    );
+  expect(line).toContain(steps.join(" && "));
+});
+
+test("refs and run build the stories before the visual tests", async () => {
+  for (const action of ["refs", "run"]) {
+    const [line = ""] = (await ws([action])).stdout.trim().split("\n");
+    expect(line, action).toContain(
+      "pnpm build:stories && VISUAL_REFS=1 pnpm test:visual",
+    );
+  }
 });
 
 test("ws works from a copy of the tree that is not a git repository", async () => {

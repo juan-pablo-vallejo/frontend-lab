@@ -1,0 +1,50 @@
+id: busy-button
+name: Busy button
+purpose: A button for an action that takes time. While its promise is pending it names the act, says aria-busy, keeps focus and takes no second press; it reports the outcome to its parent only once the promise settles.
+platforms: [web]
+status: experimental
+dependencies:
+  - name: react
+    version: 19.3.1
+provenance:
+  source: original
+  changes: written here
+variants:
+  - idle
+  - busy (a promise that never settles)
+  - succeeded
+  - failed
+accessibility:
+  role: button (a native button element). While pending it carries aria-busy="true" and aria-disabled="true", never the disabled attribute, so focus stays on it.
+  keyboard:
+    Enter: starts the action; ignored while the action is pending
+    Space: starts the action; ignored while the action is pending
+    Tab: reaches the button in every state, pending included
+  reduced_motion: Nothing moves in any state; the label change is the only change, so reduced motion changes nothing.
+  scan: No axe violation (WCAG 2.0 to 2.2 A and AA tags) in each of its four stories at 390 and 1280 px (tests/a11y/stories.spec.ts).
+motion_tokens: {}
+tests:
+  stories:
+    - busy-button--idle
+    - busy-button--busy
+    - busy-button--succeeded
+    - busy-button--failed
+  aria_snapshot: Not taken. tests/components/busy-button.spec.ts asserts the role, the name in each state, aria-busy, aria-disabled and focus directly.
+  visual_references:
+    - visual-refs/stories.spec.ts/busy-button--idle-390.png
+    - visual-refs/stories.spec.ts/busy-button--idle-1280.png
+    - visual-refs/stories.spec.ts/busy-button--busy-390.png
+    - visual-refs/stories.spec.ts/busy-button--busy-1280.png
+    - visual-refs/stories.spec.ts/busy-button--succeeded-390.png
+    - visual-refs/stories.spec.ts/busy-button--succeeded-1280.png
+    - visual-refs/stories.spec.ts/busy-button--failed-390.png
+    - visual-refs/stories.spec.ts/busy-button--failed-1280.png
+screenshots: []
+known_limitations:
+  - The outcome is the parent's to say. The stories say it in a status region (success) and an alert (failure) beside the button, both in the page from the start.
+  - No spinner. The busy label is the whole busy signal.
+  - Nothing tells the person why a press is ignored while pending beyond the busy label and aria-busy.
+changelog:
+  - date: 2026-11-24
+    change: First version, with four stories, an accessibility scan of each and six component tests.
+recipe: A native button with two labels. Keep a ref (not only state) that is set before the promise starts and cleared after it settles, and return early while it is set, so two presses in one frame start one action. Set aria-busy and aria-disabled while pending and never disabled. Call the parent's onSettled with succeeded or failed only after the promise settles. Fill with the accent token, label in the on-accent token, at least the target token in both dimensions, and draw the focus ring in the focus-ring token at the focus-ring offset, outside the fill, because the ring and the fill are the same colour.

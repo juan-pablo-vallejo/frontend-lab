@@ -2,6 +2,7 @@
 // palette neutral.900 is --lab-neutral-900, semantic statusOkTint is --lab-status-ok-tint.
 
 import {
+  borderWidth,
   breakpoints,
   focusRing,
   layer,
@@ -13,6 +14,7 @@ import {
   space,
   target,
   type,
+  width,
   type PaletteRef,
   type ShadowLayer,
 } from "./tokens.ts";
@@ -71,6 +73,16 @@ function sections(): Section[] {
         [`font-size-${name}`, rem(t.size)],
         [`line-height-${name}`, rem(t.lineHeight)],
       ]),
+    },
+    {
+      title: "Line and surface widths",
+      entries: [
+        ["border-width", px(borderWidth)],
+        ...Object.entries(width).map(([name, value]): [string, string] => [
+          `width-${name}`,
+          px(value),
+        ]),
+      ],
     },
     {
       title: "Shadows",

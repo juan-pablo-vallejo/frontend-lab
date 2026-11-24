@@ -1,0 +1,131 @@
+/* The popover: always open, empty and see-through until a message arrives, so its status
+   region is in the page before the message is inserted into it. It takes no pointer input
+   itself; only the card does. */
+.layer {
+  position: fixed;
+  inset: auto var(--lab-space-4) var(--lab-space-4);
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.region {
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--lab-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--lab-width-message);
+  padding: var(--lab-space-1) var(--lab-space-1) var(--lab-space-1) var(--lab-space-4);
+  border: var(--lab-border-width) solid var(--lab-border);
+  border-radius: var(--lab-radius-lg);
+  background: var(--lab-surface-raised);
+  box-shadow: var(--lab-shadow-lg);
+  color: var(--lab-text);
+  pointer-events: auto;
+  transition-property: opacity, transform;
+  transition-duration: var(--lab-duration-medium-in);
+  transition-timing-function: var(--lab-easing-enter);
+}
+
+/* Entrance: from below and transparent. */
+@starting-style {
+  .card {
+    opacity: 0;
+    transform: translateY(var(--lab-space-2));
+  }
+}
+
+/* Exit: back down and out, shorter than the entrance. */
+.card[data-leaving] {
+  opacity: 0;
+  transform: translateY(var(--lab-space-2));
+  transition-duration: var(--lab-duration-medium-out);
+  transition-timing-function: var(--lab-easing-exit);
+}
+
+/* Under reduced motion it only fades, in and out: arrival and departure are still told. */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card[data-leaving] {
+    transition-property: opacity;
+    transform: none;
+  }
+}
+
+.card[data-motion="reduce"],
+.card[data-motion="reduce"][data-leaving] {
+  transition-property: opacity;
+  transform: none;
+}
+
+.card[data-kind="refused"] {
+  padding-left: var(--lab-space-3);
+  border-color: var(--lab-status-problem);
+  background: var(--lab-status-problem-tint);
+}
+
+.icon {
+  flex: none;
+  width: var(--lab-space-5);
+  height: var(--lab-space-5);
+  fill: none;
+  stroke: var(--lab-status-problem);
+  stroke-linecap: round;
+}
+
+.text {
+  flex: 1;
+  margin: var(--lab-space-2) 0;
+}
+
+.undo,
+.dismiss {
+  flex: none;
+  min-width: var(--lab-target);
+  min-height: var(--lab-target);
+  border-radius: var(--lab-radius-md);
+  font: inherit;
+  cursor: pointer;
+}
+
+.undo {
+  padding: 0 var(--lab-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--lab-accent);
+  font-weight: bold;
+}
+
+.dismiss {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: var(--lab-border-width) solid var(--lab-border);
+  background: transparent;
+  color: var(--lab-text);
+}
+
+.cross {
+  width: var(--lab-space-4);
+  height: var(--lab-space-4);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+.undo:focus-visible,
+.dismiss:focus-visible {
+  outline: var(--lab-focus-ring-width) solid var(--lab-focus-ring);
+  outline-offset: var(--lab-focus-ring-offset);
+}

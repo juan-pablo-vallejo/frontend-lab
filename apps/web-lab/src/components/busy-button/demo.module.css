@@ -1,0 +1,20 @@
+/* The story's own page around the button: not part of the component. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lab-space-3);
+}
+
+.ok,
+.problem {
+  margin: 0;
+}
+
+.ok {
+  color: var(--lab-status-ok);
+}
+
+.problem {
+  color: var(--lab-status-problem);
+}

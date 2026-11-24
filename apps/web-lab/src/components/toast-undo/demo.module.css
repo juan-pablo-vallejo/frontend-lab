@@ -1,0 +1,81 @@
+/* The story's own page around the toast: not part of the component. */
+.pane {
+  display: grid;
+  justify-items: start;
+  gap: var(--lab-space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--lab-font-size-lg);
+  line-height: var(--lab-line-height-lg);
+}
+
+.list {
+  display: grid;
+  gap: var(--lab-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--lab-space-3);
+}
+
+.button,
+.input {
+  min-height: var(--lab-target);
+  padding: 0 var(--lab-space-3);
+  border: var(--lab-border-width) solid var(--lab-border);
+  border-radius: var(--lab-radius-md);
+  background: var(--lab-surface);
+  color: var(--lab-text);
+  font: inherit;
+}
+
+.button {
+  cursor: pointer;
+}
+
+.field {
+  display: grid;
+  gap: var(--lab-space-1);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--lab-space-2);
+  min-height: var(--lab-target);
+}
+
+.box {
+  width: var(--lab-space-5);
+  height: var(--lab-space-5);
+  margin: 0;
+}
+
+.button:focus-visible,
+.input:focus-visible,
+.box:focus-visible,
+.title:focus-visible {
+  outline: var(--lab-focus-ring-width) solid var(--lab-focus-ring);
+  outline-offset: var(--lab-focus-ring-offset);
+}
+
+.dialog {
+  padding: var(--lab-space-6);
+  border: var(--lab-border-width) solid var(--lab-border);
+  border-radius: var(--lab-radius-lg);
+  background: var(--lab-surface);
+  color: var(--lab-text);
+  box-shadow: var(--lab-shadow-lg);
+}
+
+.dialog .actions {
+  margin-top: var(--lab-space-4);
+}
