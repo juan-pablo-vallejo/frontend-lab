@@ -4,12 +4,14 @@ A place to try interface components and micro-interactions outside any product, 
 scripts that inspect a rendered interface: screenshots at several widths and languages, an
 accessibility scan, and measurements of target size, overflow, focus, motion and layout shift.
 
-| Path           | What                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| `scripts/`     | `capture`, `measure`, `validate`, `guard`, `ws`. `scripts/README.md` has their inputs and outputs |
-| `qa/fixtures/` | pages the scripts are tested against                                                              |
-| `tests/`       | accessibility and visual tests                                                                    |
-| `visual-refs/` | reference images, written and compared on one Linux machine only                                  |
+| Path               | What                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `scripts/`         | `capture`, `measure`, `validate`, `guard`, `ws`. `scripts/README.md` has their inputs and outputs |
+| `packages/motion/` | motion tokens as data: durations, easings, critically damped springs                              |
+| `packages/tokens/` | reference tokens: `src/tokens.ts` is the source, `tokens.css` is generated from it                |
+| `qa/fixtures/`     | pages the scripts are tested against                                                              |
+| `tests/`           | accessibility and visual tests                                                                    |
+| `visual-refs/`     | reference images, written and compared on one Linux machine only                                  |
 
 `pnpm install --frozen-lockfile && pnpm check` runs what CI runs.
 

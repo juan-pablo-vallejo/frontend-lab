@@ -1,0 +1,16 @@
+{
+  "name": "@frontend-lab/tokens",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./tokens.css": "./tokens.css"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.ts"
+  },
+  "dependencies": {
+    "@frontend-lab/motion": "workspace:*"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@frontend-lab/motion",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

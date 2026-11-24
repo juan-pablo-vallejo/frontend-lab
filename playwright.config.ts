@@ -18,6 +18,7 @@ export default defineConfig({
   snapshotPathTemplate: "visual-refs/{testFilePath}/{arg}{ext}",
   use: { browserName: "chromium" },
   projects: [
+    { name: "packages", testDir: "packages", testMatch: "*/test/**/*.spec.ts" },
     { name: "scripts", testDir: "scripts/test", timeout: 60_000 },
     { name: "a11y", testDir: "tests/a11y" },
     { name: "visual", testDir: "tests/visual" },

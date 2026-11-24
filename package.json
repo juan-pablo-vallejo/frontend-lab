@@ -14,10 +14,11 @@
     "format:check": "prettier --check .",
     "validate": "scripts/validate",
     "guard": "scripts/guard",
+    "test:packages": "playwright test --project=packages",
     "test:scripts": "playwright test --project=scripts",
     "test:a11y": "playwright test --project=a11y",
     "test:visual": "playwright test --project=visual",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm validate && pnpm guard && pnpm test:scripts && pnpm test:a11y"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm validate && pnpm guard && pnpm test:packages && pnpm test:scripts && pnpm test:a11y"
   },
   "prettier": {
     "semi": true,
