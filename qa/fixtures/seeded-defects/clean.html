@@ -35,17 +35,7 @@
     color: #1a3d8f;
     font-size: 13px;
   }
-  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
-  .live-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #1f883d;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .live-dot { animation: pulse 1.6s ease-in-out infinite; }
-  }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .as-of { font-size: 14px; color: #616161; }
   .day-nav { display: inline-flex; gap: 8px; margin-left: auto; }
   .day-nav button {
     width: 32px;
@@ -97,8 +87,10 @@
   .status svg { width: 16px; height: 16px; }
   .status.on { color: #116329; }
   .status.off { color: #a40e26; }
-  .empty { padding: 16px 0; }
-  .empty p { margin: 0 0 8px; }
+  .empty { padding: 0; }
+  .empty p { margin: 0; }
+  .empty.shown { padding: 16px 0; }
+  .empty.shown p { margin: 0 0 8px; }
   .secondary {
     padding: 8px 16px;
     border: 1px solid #8c959f;
@@ -111,14 +103,22 @@
     top: 0;
     right: 0;
     bottom: 0;
+    left: auto;
     width: min(360px, 100%);
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
     padding: 20px;
+    color: #1f2328;
     background: #ffffff;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
     transform: translateX(100%);
     transition: transform 250ms ease;
   }
   .panel.open { transform: translateX(0); }
+  .panel::backdrop { background: transparent; }
   @media (prefers-reduced-motion: reduce) {
     .panel { transition: none; }
   }
@@ -141,6 +141,8 @@
     font: inherit;
   }
   .panel .primary { margin-top: 20px; }
+  .field-error { margin: 4px 0 0; font-size: 14px; color: #a40e26; }
+  .field-error:empty { margin: 0; }
   .result { min-height: 48px; margin: 12px 0 0; font-size: 14px; }
   .result.ok { color: #116329; }
   .result.fail { color: #a40e26; }
@@ -152,10 +154,10 @@
   <header>
     <h1 data-i18n="heading">Crew today</h1>
     <span class="crew-chip" data-i18n="chip">Day crew</span>
-    <span class="live"><span class="live-dot" aria-hidden="true"></span><span data-i18n="live">Live</span></span>
+    <span class="as-of" id="as-of" data-i18n="asOf">As of 09:41</span>
     <span class="day-nav">
-      <button type="button" data-i18n-label="prev" aria-label="Previous day">&lsaquo;</button>
-      <button type="button" data-i18n-label="next" aria-label="Next day">&rsaquo;</button>
+      <button type="button" id="prev-day" data-i18n-label="prev" aria-label="Previous day">&lsaquo;</button>
+      <button type="button" id="next-day" data-i18n-label="next" aria-label="Next day">&rsaquo;</button>
     </span>
   </header>
 
@@ -169,31 +171,34 @@
   <p class="helper" data-i18n="helper">Statuses refresh every few minutes.</p>
 
   <ul class="crew" id="crew"></ul>
-  <div class="empty" id="empty" hidden>
-    <p id="empty-text"></p>
-    <button type="button" class="secondary" id="clear-filter" data-i18n="clear">Clear filter</button>
+  <div class="empty" id="empty">
+    <p id="empty-text" role="status"></p>
+    <button type="button" class="secondary" id="clear-filter" data-i18n="clear" hidden>Clear filter</button>
   </div>
 </main>
 
-<aside class="panel" id="panel" aria-labelledby="panel-title" hidden>
+<dialog class="panel" id="panel" aria-labelledby="panel-title">
   <div class="panel-head">
     <h2 id="panel-title" data-i18n="panelTitle">New shift</h2>
     <button type="button" class="close" id="close-panel" data-i18n-label="close" aria-label="Close">&times;</button>
   </div>
-  <form id="shift-form">
+  <form id="shift-form" novalidate>
     <label for="shift-person" data-i18n="person">Person</label>
-    <input id="shift-person" type="text" autocomplete="off">
+    <input id="shift-person" type="text" autocomplete="off" aria-required="true" autofocus>
+    <p class="field-error" id="person-error" role="alert"></p>
     <label for="shift-start" data-i18n="start">Start time</label>
     <input id="shift-start" type="text" value="07:00" autocomplete="off">
     <button type="submit" class="primary" id="save" data-i18n="save">Save</button>
   </form>
   <p class="result" id="result" role="status"></p>
-</aside>
+</dialog>
 
 <script>
   const strings = {
     en: {
-      title: "Crew today", heading: "Crew today", chip: "Day crew", live: "Live",
+      title: "Crew today", heading: "Crew today", chip: "Day crew", asOf: "As of 09:41",
+      planned: "Planned as of 09:41", final: "Final as of 18:00",
+      required: "Enter the person's name.",
       prev: "Previous day", next: "Next day", filter: "Filter by name", add: "Add shift",
       helper: "Statuses refresh every few minutes.", panelTitle: "New shift", close: "Close",
       person: "Person", start: "Start time", save: "Save", saving: "Saving…",
@@ -203,7 +208,9 @@
       empty: "No one matches this filter."
     },
     es: {
-      title: "Equipo de hoy", heading: "Equipo de hoy", chip: "Cuadrilla del turno de día", live: "En vivo",
+      title: "Equipo de hoy", heading: "Equipo de hoy", chip: "Cuadrilla del turno de día", asOf: "A las 09:41",
+      planned: "Previsto a las 09:41", final: "Cerrado a las 18:00",
+      required: "Escribe el nombre de la persona.",
       prev: "Día anterior", next: "Día siguiente", filter: "Filtrar por nombre", add: "Añadir turno",
       helper: "Los estados se actualizan cada pocos minutos.", panelTitle: "Nuevo turno", close: "Cerrar",
       person: "Persona", start: "Hora de inicio", save: "Guardar", saving: "Guardando…",
@@ -244,7 +251,8 @@
 
   const filter = document.getElementById("filter");
   const empty = document.getElementById("empty");
-  document.getElementById("empty-text").textContent = t.empty;
+  const emptyText = document.getElementById("empty-text");
+  const clear = document.getElementById("clear-filter");
   function applyFilter() {
     const query = filter.value.trim().toLowerCase();
     let shown = 0;
@@ -252,33 +260,107 @@
       li.hidden = !li.dataset.name.includes(query);
       if (!li.hidden) shown += 1;
     }
-    empty.hidden = shown > 0;
+    const none = shown === 0;
+    emptyText.textContent = none ? t.empty : "";
+    clear.hidden = !none;
+    empty.classList.toggle("shown", none);
   }
   filter.addEventListener("input", applyFilter);
-  document.getElementById("clear-filter").addEventListener("click", () => {
+  clear.addEventListener("click", () => {
     filter.value = "";
     applyFilter();
     filter.focus();
   });
 
+  const today = Date.UTC(2026, 10, 23, 12);
+  const dayName = new Intl.DateTimeFormat(lang, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+  const heading = document.querySelector("h1");
+  const asOf = document.getElementById("as-of");
+  let offset = 0;
+  function showDay() {
+    if (offset === 0) {
+      heading.textContent = t.heading;
+      asOf.textContent = t.asOf;
+    } else {
+      heading.textContent = dayName.format(new Date(today + offset * 86400000));
+      asOf.textContent = offset > 0 ? t.planned : t.final;
+    }
+  }
+  document.getElementById("prev-day").addEventListener("click", () => { offset -= 1; showDay(); });
+  document.getElementById("next-day").addEventListener("click", () => { offset += 1; showDay(); });
+
   const panel = document.getElementById("panel");
-  document.getElementById("add-shift").addEventListener("click", () => {
-    panel.hidden = false;
+  const addShift = document.getElementById("add-shift");
+  const closeButton = document.getElementById("close-panel");
+  const form = document.getElementById("shift-form");
+  const person = document.getElementById("shift-person");
+  const result = document.getElementById("result");
+  const save = document.getElementById("save");
+  let pending = false;
+
+  function clearResult() {
+    result.className = "result";
+    result.textContent = "";
+  }
+  addShift.addEventListener("click", () => {
+    clearResult();
+    clearRequired();
+    panel.showModal();
     panel.getBoundingClientRect();
     panel.classList.add("open");
   });
-  document.getElementById("close-panel").addEventListener("click", () => {
+  closeButton.addEventListener("click", () => {
+    if (!pending) panel.close();
+  });
+  panel.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && pending) event.preventDefault();
+  });
+  panel.addEventListener("cancel", (event) => {
+    if (pending) event.preventDefault();
+  });
+  panel.addEventListener("close", () => {
     panel.classList.remove("open");
-    panel.hidden = true;
+    addShift.focus();
   });
 
-  const result = document.getElementById("result");
-  const save = document.getElementById("save");
-  document.getElementById("shift-form").addEventListener("submit", (event) => {
+  const personError = document.getElementById("person-error");
+  function clearRequired() {
+    personError.textContent = "";
+    person.removeAttribute("aria-invalid");
+    person.removeAttribute("aria-describedby");
+  }
+  const start = document.getElementById("shift-start");
+  function showRequired() {
+    personError.textContent = t.required;
+    person.setAttribute("aria-invalid", "true");
+    person.setAttribute("aria-describedby", "person-error");
+    person.focus();
+  }
+  form.addEventListener("input", () => {
+    if (!pending) clearResult();
+    if (personError.textContent && person.value.trim()) clearRequired();
+  });
+
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (pending) return;
+    if (!person.value.trim()) {
+      showRequired();
+      return;
+    }
+    pending = true;
+    person.readOnly = true;
+    start.readOnly = true;
+    save.setAttribute("aria-busy", "true");
+    closeButton.setAttribute("aria-disabled", "true");
     save.textContent = t.saving;
-    result.textContent = "";
+    clearResult();
     setTimeout(() => {
+      pending = false;
+      person.readOnly = false;
+      start.readOnly = false;
+      save.removeAttribute("aria-busy");
+      closeButton.removeAttribute("aria-disabled");
       save.textContent = t.save;
       result.className = "result ok";
       result.textContent = t.saved;

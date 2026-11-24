@@ -83,6 +83,10 @@ export type FocusStop = {
   outlineWidth: number;
 };
 
+// An element as the evidence describes it. Every one comes from the same function in the
+// page, so an element in `interactive` and in `focusAfter` has the same three values.
+export type Described = { selector: string; role: string; name: string };
+
 export type Measurements = {
   settled: boolean;
   viewport: { width: number; height: number };
@@ -91,13 +95,19 @@ export type Measurements = {
     clientWidth: number;
     elements: { selector: string; left: number; right: number }[];
   };
-  interactive: {
-    selector: string;
-    role: string;
-    name: string;
+  interactive: (Described & {
     box: Box;
     inlineInText: boolean;
+    states: Record<string, string | boolean>;
+  })[];
+  document: { lang: string | null; title: string };
+  liveRegions: {
+    selector: string;
+    role: string | null;
+    live: string | null;
+    text: string;
   }[];
+  focusAfter: Described | null;
   focus: { stops: FocusStop[]; limitReached: boolean };
   motion: { noPreference: MotionEntry[] | null; reduce: MotionEntry[] };
   layoutShift: {

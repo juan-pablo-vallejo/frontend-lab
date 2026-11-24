@@ -12,6 +12,7 @@ import {
   collectMotion,
   collectStatic,
   focusedSettled,
+  recordSteadyFocus,
   focusStop,
   installHelpers,
   prepareFocusWalk,
@@ -115,6 +116,14 @@ function playwrightVersion(): string {
   return pkg.version;
 }
 
+// The text of axe-core, which @axe-core/playwright puts into a page before a scan. It is
+// that package's dependency, not this repository's, so it is looked up from there.
+function axeSource(): string {
+  const require = createRequire(import.meta.url);
+  const fromBuilder = createRequire(require.resolve("@axe-core/playwright"));
+  return (fromBuilder("axe-core") as { source: string }).source;
+}
+
 function withQuery(url: string, query: string | undefined): string {
   if (!query) return url;
   const parsed = new URL(url);
@@ -195,6 +204,7 @@ async function walkFocus(page: Page): Promise<Measurements["focus"]> {
   const stops: FocusStop[] = [];
   let first = "";
   let previous = "";
+  let bodyStops = 0;
   for (let i = 0; i < MAX_TAB_STOPS; i += 1) {
     await page.keyboard.press("Tab");
     // Let a focus transition reach its end before the element is read (at most 1 s).
@@ -202,7 +212,15 @@ async function walkFocus(page: Page): Promise<Measurements["focus"]> {
       .waitForFunction(focusedSettled, null, { timeout: 1000, polling: 50 })
       .catch(() => undefined);
     const stop = await page.evaluate(focusStop);
-    if (!stop || stop.atBody) return { stops, limitReached: false };
+    // One stop on the body is passed over: under a modal dialog, Tab goes through the
+    // browser's own controls and comes back into the dialog.
+    if (!stop || stop.atBody) {
+      if (bodyStops === 0) {
+        bodyStops += 1;
+        continue;
+      }
+      return { stops, limitReached: false };
+    }
     if (stop.key === first) return { stops, limitReached: false };
     if (stop.key === previous) continue;
     if (!first) first = stop.key;
@@ -269,8 +287,24 @@ async function captureUnit(
       await page.waitForSelector(waitFor, { state: "visible", timeout: 15_000 });
     else await page.waitForTimeout(SETTLE_AFTER_LOAD_MS);
     await runSteps(page, base, steps.lang);
+    // What has focus after a named state's steps is described by the page itself, the moment
+    // it is read, as `interactive` is described: with axe. So axe goes into the page here,
+    // before those steps rather than after them, where it would hold up the reading, and
+    // into any document they load.
+    if (unit.state) {
+      const source = axeSource();
+      await page.addInitScript({ content: source });
+      await page.evaluate(source);
+    }
     await runSteps(page, base, steps.state);
+
     const settled = await settle(page);
+    // Evidence: what has focus once a named state's steps are done. Read until it has not
+    // changed for 400 ms (at most 2 s), so a dialog that moves focus on the next frame, after
+    // a timer or at the end of its transition is seen with focus inside it.
+    const focusAfter = unit.state
+      ? await page.evaluate(recordSteadyFocus, { steady: 400, limit: 2000 })
+      : null;
 
     await page.screenshot({
       path: join(out, unit.shot),
@@ -290,7 +324,7 @@ async function captureUnit(
     const motion = await measureMotion(page, reducedMotion);
     return {
       axe,
-      measure: { settled, ...statics, focus, motion, layoutShift },
+      measure: { settled, ...statics, focusAfter, focus, motion, layoutShift },
       console: record,
     };
   } finally {

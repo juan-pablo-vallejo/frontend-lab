@@ -41,6 +41,10 @@ const PROBE = `<!doctype html>
   <span class="spinner" role="img" aria-label="Loading"></span>
   <div id="inline-child"><span>This text is far too long for its box</span></div>
   <p class="grad">Text over a gradient</p>
+  <p id="saved-note" role="status">Saved a minute ago</p>
+  <div id="ticker" aria-live="assertive">Two updates</div>
+  <button id="busy" aria-busy="true" aria-describedby="saved-note">Busy</button>
+  <button id="menu" aria-expanded="false" aria-pressed="true" disabled>Menu</button>
   <div id="host"></div>
   <img src="http://example.invalid/pixel.png" alt="" width="1" height="1">
 </main>
@@ -70,6 +74,60 @@ ${Array.from({ length: 65 }, (_, i) => `<a href="#a${i}">Link ${i}</a>`).join("\
 </main></body></html>
 `;
 
+// Dialogs that move focus late (next frame, after 150 ms, at the end of a 250 ms entry
+// transition), and a modal dialog with four controls.
+const DIALOGS = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Dialogs</title>
+<style>
+  body { font: 16px/1.5 Arial, sans-serif; margin: 16px; }
+  button, input { min-width: 48px; min-height: 32px; margin: 4px; }
+  .dlg { border: 1px solid #333; padding: 8px; }
+  .dlg[hidden] { display: none; }
+  #slide { transform: translateX(40px); }
+  #slide.in { transform: none; transition: transform 250ms; }
+</style></head>
+<body><main><h1>Dialogs</h1>
+<button id="open-frame">Next frame</button>
+<button id="open-timeout">After 150 ms</button>
+<button id="open-slide">After a transition</button>
+<button id="open-modal">Modal</button>
+<button id="open-late">After 300 ms</button>
+<button id="open-gone">Then removed</button>
+<div id="gone-box"><label>R <input id="gone-field"></label></div>
+<div class="dlg" role="dialog" aria-label="Frame" id="frame" hidden><label>A <input id="frame-field"></label></div>
+<div class="dlg" role="dialog" aria-label="Timeout" id="timeout" hidden><label>B <input id="timeout-field"></label></div>
+<div class="dlg" role="dialog" aria-label="Slide" id="slide" hidden><label>C <input id="slide-field"></label></div>
+<div class="dlg" role="dialog" aria-label="Late" id="late" hidden><label>D <input id="late-field"></label></div>
+</main>
+<dialog id="modal" aria-label="Four">
+  <button id="m1">One</button><button id="m2">Two</button>
+  <button id="m3">Three</button><button id="m4">Four</button>
+</dialog>
+<script>
+  const show = (id) => { const d = document.getElementById(id); d.hidden = false; return d; };
+  document.getElementById("open-frame").onclick = () => {
+    show("frame"); requestAnimationFrame(() => document.getElementById("frame-field").focus());
+  };
+  document.getElementById("open-timeout").onclick = () => {
+    show("timeout"); setTimeout(() => document.getElementById("timeout-field").focus(), 150);
+  };
+  document.getElementById("open-slide").onclick = () => {
+    const d = show("slide");
+    d.addEventListener("transitionend", () => document.getElementById("slide-field").focus(), { once: true });
+    d.getBoundingClientRect(); d.classList.add("in");
+  };
+  document.getElementById("open-late").onclick = () => {
+    show("late"); setTimeout(() => document.getElementById("late-field").focus(), 300);
+  };
+  document.getElementById("open-gone").onclick = () => {
+    document.getElementById("gone-field").focus();
+    setTimeout(() => document.getElementById("gone-box").remove(), 600);
+  };
+  document.getElementById("open-modal").onclick = () => document.getElementById("modal").showModal();
+</script>
+</body></html>
+`;
+
 let site = "";
 let out = "";
 let findings: Finding[] = [];
@@ -81,6 +139,7 @@ test.beforeAll(async () => {
   await mkdir(join(site, "pages"));
   await writeFile(join(site, "pages/probe.html"), PROBE);
   await writeFile(join(site, "pages/many.html"), MANY);
+  await writeFile(join(site, "pages/dialogs.html"), DIALOGS);
   await writeFile(
     join(site, "probe.target.json"),
     JSON.stringify({
@@ -90,6 +149,16 @@ test.beforeAll(async () => {
       routes: [
         { id: "probe", path: "/probe.html", waitFor: "#ready" },
         { id: "many", path: "/many.html" },
+        { id: "dialogs", path: "/dialogs.html" },
+      ],
+      states: [
+        { id: "focused", routes: ["probe"], steps: [{ click: "#plain" }] },
+        { id: "frame", routes: ["dialogs"], steps: [{ click: "#open-frame" }] },
+        { id: "timeout", routes: ["dialogs"], steps: [{ click: "#open-timeout" }] },
+        { id: "slide", routes: ["dialogs"], steps: [{ click: "#open-slide" }] },
+        { id: "modal", routes: ["dialogs"], steps: [{ click: "#open-modal" }] },
+        { id: "late", routes: ["dialogs"], steps: [{ click: "#open-late" }] },
+        { id: "gone", routes: ["dialogs"], steps: [{ click: "#open-gone" }] },
       ],
     }),
   );
@@ -105,8 +174,84 @@ test.beforeAll(async () => {
   findings = JSON.parse(await readFile(join(out, "findings.json"), "utf8")) as Finding[];
 });
 
+// Findings of a route's base unit.
 const on = (route: string, key: string) =>
-  findings.filter((f) => f.unit.route === route && f.key === key);
+  findings.filter(
+    (f) => f.unit.route === route && f.unit.state === null && f.key === key,
+  );
+
+type Evidence = {
+  document: { lang: string | null; title: string };
+  liveRegions: {
+    selector: string;
+    role: string | null;
+    live: string | null;
+    text: string;
+  }[];
+  interactive: { selector: string; states: Record<string, string | boolean> }[];
+  focusAfter: { selector: string; role: string; name: string } | null;
+};
+const evidence = async (id: string) =>
+  (
+    JSON.parse(await readFile(join(out, "measure.json"), "utf8")) as Record<
+      string,
+      Evidence
+    >
+  )[id];
+
+test("measure.json records the document's lang and title", async () => {
+  expect((await evidence("probe-800-default"))?.document).toEqual({
+    lang: "en",
+    title: "Probe",
+  });
+});
+
+test("measure.json records every live region with its role, politeness and text", async () => {
+  const regions = (await evidence("probe-800-default"))?.liveRegions ?? [];
+  expect(regions).toContainEqual({
+    selector: "#saved-note",
+    role: "status",
+    live: "polite",
+    text: "Saved a minute ago",
+  });
+  expect(regions).toContainEqual({
+    selector: "#ticker",
+    role: null,
+    live: "assertive",
+    text: "Two updates",
+  });
+});
+
+test("measure.json records the ARIA and disabled states of interactive elements", async () => {
+  const items = (await evidence("probe-800-default"))?.interactive ?? [];
+  expect(items.find((i) => i.selector === "#busy")?.states).toEqual({
+    "aria-busy": "true",
+    "aria-describedby": "saved-note",
+  });
+  expect(items.find((i) => i.selector === "#grow")?.states).toEqual({});
+  expect(items.find((i) => i.selector === "#menu")?.states).toEqual({
+    disabled: true,
+    "aria-expanded": "false",
+    "aria-pressed": "true",
+  });
+});
+
+test("measure.json records where focus is when a state's steps have finished", async () => {
+  expect((await evidence("probe-800-default-focused"))?.focusAfter).toEqual({
+    selector: "#plain",
+    role: "button",
+    name: "Plain",
+  });
+  expect((await evidence("probe-800-default"))?.focusAfter).toBeNull();
+});
+
+test("measure makes no finding from the evidence fields", () => {
+  const focused = findings.filter((f) => f.unit.state === "focused").map((f) => f.key);
+  const base = findings.filter((f) => f.unit.route === "probe" && f.unit.state === null);
+  expect([...new Set(focused)].sort()).toEqual(
+    [...new Set(base.map((f) => f.key))].sort(),
+  );
+});
 
 test("M10: a route's waitFor is awaited before the unit is measured", async () => {
   // The page adds #ready after 3000 ms, later than the fixed second.
@@ -329,4 +474,45 @@ test("I11: a redirect, a redirected sub-resource and a WebSocket to another host
     local.closeAllConnections();
     await new Promise((done) => local.close(done));
   }
+});
+
+test("B1: focusAfter is read once the page has settled after the steps", async () => {
+  for (const [state, field] of [
+    ["frame", "#frame-field"],
+    ["timeout", "#timeout-field"],
+    ["slide", "#slide-field"],
+    ["late", "#late-field"],
+  ]) {
+    const unit = await evidence(`dialogs-800-default-${state}`);
+    expect(unit?.focusAfter?.selector, state).toBe(field);
+  }
+});
+
+test("C1: under a modal dialog the focus walk measures every control of the dialog", async () => {
+  const m = JSON.parse(await readFile(join(out, "measure.json"), "utf8")) as Record<
+    string,
+    { focus: { stops: { selector: string }[] } }
+  >;
+  const stops = m["dialogs-800-default-modal"]?.focus.stops.map((s) => s.selector) ?? [];
+  for (const id of ["#m1", "#m2", "#m3", "#m4"]) expect(stops, id).toContain(id);
+});
+
+test("focusAfter describes the element when it is recorded, not after it has left the page", async () => {
+  // Focus is on #gone-field when the reading settles; the field is removed 600 ms after the
+  // click, before the screenshot and the scan are done.
+  const gone = (await evidence("dialogs-800-default-gone"))?.focusAfter;
+  expect(gone).toEqual({ selector: "#gone-field", role: "textbox", name: "R" });
+});
+
+test("focusAfter of an element still in the page is described as before", async () => {
+  expect((await evidence("dialogs-800-default-late"))?.focusAfter).toEqual({
+    selector: "#late-field",
+    role: "textbox",
+    name: "D",
+  });
+  expect((await evidence("probe-800-default-focused"))?.focusAfter).toEqual({
+    selector: "#plain",
+    role: "button",
+    name: "Plain",
+  });
 });

@@ -59,3 +59,27 @@ test("clean: every width, both languages and every state were captured", () => {
     expect(existsSync(join(out, unit.shot)), unit.id).toBe(true);
   }
 });
+
+test("clean: the panel state leaves focus inside the panel, on the first field", async () => {
+  const m = JSON.parse(await readFile(join(out, "measure.json"), "utf8")) as Record<
+    string,
+    { focusAfter: { selector: string } | null }
+  >;
+  for (const width of [390, 768, 1280]) {
+    expect(m[`clean-${width}-en-panel`]?.focusAfter?.selector).toBe("#shift-person");
+  }
+});
+
+test("clean: the refusal alert under Person is a live region, empty, in every panel unit", async () => {
+  const m = JSON.parse(await readFile(join(out, "measure.json"), "utf8")) as Record<
+    string,
+    { liveRegions: { selector: string; role: string | null; text: string }[] }
+  >;
+  for (const width of [390, 768, 1280]) {
+    for (const lang of ["en", "es"]) {
+      expect(m[`clean-${width}-${lang}-panel`]?.liveRegions).toContainEqual(
+        expect.objectContaining({ selector: "#person-error", role: "alert", text: "" }),
+      );
+    }
+  }
+});
