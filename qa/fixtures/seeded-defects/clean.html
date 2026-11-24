@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title data-i18n="title">Crew today</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font: 16px/1.5 Arial, "Liberation Sans", Helvetica, sans-serif;
+    color: #1f2328;
+    background: #ffffff;
+  }
+  :focus-visible { outline: 2px solid #1a56db; outline-offset: 2px; }
+  .notice-slot { height: 400px; margin: 0 0 16px; }
+  .notice {
+    height: 400px;
+    margin: 0;
+    padding: 16px;
+    overflow: hidden;
+    background: #fff4d6;
+    color: #4a3500;
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 1.5rem; }
+  .crew-chip {
+    display: inline-block;
+    max-width: 100%;
+    padding: 2px 4px;
+    border-radius: 12px;
+    background: #e7eefc;
+    color: #1a3d8f;
+    font-size: 13px;
+  }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .live-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #1f883d;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .live-dot { animation: pulse 1.6s ease-in-out infinite; }
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .day-nav { display: inline-flex; gap: 8px; margin-left: auto; }
+  .day-nav button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #8c959f;
+    border-radius: 4px;
+    background: #f6f8fa;
+    color: #1f2328;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 16px 0 4px;
+  }
+  .field-caption { display: block; font-size: 14px; font-weight: 600; }
+  .toolbar input {
+    width: 220px;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #8c959f;
+    border-radius: 6px;
+    font: inherit;
+  }
+  button { font: inherit; cursor: pointer; }
+  .primary {
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: #1a56db;
+    color: #ffffff;
+  }
+  .helper { margin: 4px 0 12px; font-size: 14px; color: #616161; }
+  .crew { list-style: none; margin: 0; padding: 0; }
+  .crew li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid #d8dee4;
+  }
+  .crew li[hidden] { display: none; }
+  .crew .name { flex: 1; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .status svg { width: 16px; height: 16px; }
+  .status.on { color: #116329; }
+  .status.off { color: #a40e26; }
+  .empty { padding: 16px 0; }
+  .empty p { margin: 0 0 8px; }
+  .secondary {
+    padding: 8px 16px;
+    border: 1px solid #8c959f;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2328;
+  }
+  .panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(360px, 100%);
+    padding: 20px;
+    background: #ffffff;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    transform: translateX(100%);
+    transition: transform 250ms ease;
+  }
+  .panel.open { transform: translateX(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .panel { transition: none; }
+  }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; }
+  .panel h2 { margin: 0; font-size: 1.25rem; }
+  .close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #8c959f;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2328;
+  }
+  .panel label { display: block; margin: 16px 0 4px; font-size: 14px; font-weight: 600; }
+  .panel input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #8c959f;
+    border-radius: 6px;
+    font: inherit;
+  }
+  .panel .primary { margin-top: 20px; }
+  .result { min-height: 48px; margin: 12px 0 0; font-size: 14px; }
+  .result.ok { color: #116329; }
+  .result.fail { color: #a40e26; }
+</style>
+</head>
+<body>
+<main id="main">
+  <div class="notice-slot" id="notice-slot"></div>
+  <header>
+    <h1 data-i18n="heading">Crew today</h1>
+    <span class="crew-chip" data-i18n="chip">Day crew</span>
+    <span class="live"><span class="live-dot" aria-hidden="true"></span><span data-i18n="live">Live</span></span>
+    <span class="day-nav">
+      <button type="button" data-i18n-label="prev" aria-label="Previous day">&lsaquo;</button>
+      <button type="button" data-i18n-label="next" aria-label="Next day">&rsaquo;</button>
+    </span>
+  </header>
+
+  <div class="toolbar">
+    <div>
+      <label class="field-caption" for="filter" data-i18n="filter">Filter by name</label>
+      <input id="filter" type="text" autocomplete="off">
+    </div>
+    <button type="button" class="primary" id="add-shift" data-i18n="add">Add shift</button>
+  </div>
+  <p class="helper" data-i18n="helper">Statuses refresh every few minutes.</p>
+
+  <ul class="crew" id="crew"></ul>
+  <div class="empty" id="empty" hidden>
+    <p id="empty-text"></p>
+    <button type="button" class="secondary" id="clear-filter" data-i18n="clear">Clear filter</button>
+  </div>
+</main>
+
+<aside class="panel" id="panel" aria-labelledby="panel-title" hidden>
+  <div class="panel-head">
+    <h2 id="panel-title" data-i18n="panelTitle">New shift</h2>
+    <button type="button" class="close" id="close-panel" data-i18n-label="close" aria-label="Close">&times;</button>
+  </div>
+  <form id="shift-form">
+    <label for="shift-person" data-i18n="person">Person</label>
+    <input id="shift-person" type="text" autocomplete="off">
+    <label for="shift-start" data-i18n="start">Start time</label>
+    <input id="shift-start" type="text" value="07:00" autocomplete="off">
+    <button type="submit" class="primary" id="save" data-i18n="save">Save</button>
+  </form>
+  <p class="result" id="result" role="status"></p>
+</aside>
+
+<script>
+  const strings = {
+    en: {
+      title: "Crew today", heading: "Crew today", chip: "Day crew", live: "Live",
+      prev: "Previous day", next: "Next day", filter: "Filter by name", add: "Add shift",
+      helper: "Statuses refresh every few minutes.", panelTitle: "New shift", close: "Close",
+      person: "Person", start: "Start time", save: "Save", saving: "Saving…",
+      saved: "Shift saved.",
+      notice: "Two people start late today because of a delivery at the north gate. Their shifts were moved by one hour.",
+      on: "On site", off: "Off today", clear: "Clear filter",
+      empty: "No one matches this filter."
+    },
+    es: {
+      title: "Equipo de hoy", heading: "Equipo de hoy", chip: "Cuadrilla del turno de día", live: "En vivo",
+      prev: "Día anterior", next: "Día siguiente", filter: "Filtrar por nombre", add: "Añadir turno",
+      helper: "Los estados se actualizan cada pocos minutos.", panelTitle: "Nuevo turno", close: "Cerrar",
+      person: "Persona", start: "Hora de inicio", save: "Guardar", saving: "Guardando…",
+      saved: "Turno guardado.",
+      notice: "Hoy dos personas empiezan tarde por una entrega en la puerta norte. Sus turnos se movieron una hora.",
+      on: "En obra", off: "Libre hoy", clear: "Borrar filtro",
+      empty: "Nadie coincide con este filtro."
+    }
+  };
+  const lang = new URLSearchParams(location.search).get("lang") === "es" ? "es" : "en";
+  const t = strings[lang];
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t[el.dataset.i18n]; });
+  document.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t[el.dataset.i18nLabel]); });
+
+  const crew = [
+    ["Avery", true], ["Blake", true], ["Casey", false], ["Drew", true], ["Emery", true],
+    ["Finley", false], ["Harper", true], ["Jordan", true], ["Kendall", true], ["Morgan", false]
+  ];
+  const icons = {
+    on: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    off: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
+  };
+  const list = document.getElementById("crew");
+  for (const [name, on] of crew) {
+    const li = document.createElement("li");
+    li.dataset.name = name.toLowerCase();
+    const label = document.createElement("span");
+    label.className = "name";
+    label.textContent = name;
+    const status = document.createElement("span");
+    status.className = "status " + (on ? "on" : "off");
+    status.innerHTML = icons[on ? "on" : "off"];
+    status.append(t[on ? "on" : "off"]);
+    li.append(label, status);
+    list.append(li);
+  }
+
+  const filter = document.getElementById("filter");
+  const empty = document.getElementById("empty");
+  document.getElementById("empty-text").textContent = t.empty;
+  function applyFilter() {
+    const query = filter.value.trim().toLowerCase();
+    let shown = 0;
+    for (const li of list.children) {
+      li.hidden = !li.dataset.name.includes(query);
+      if (!li.hidden) shown += 1;
+    }
+    empty.hidden = shown > 0;
+  }
+  filter.addEventListener("input", applyFilter);
+  document.getElementById("clear-filter").addEventListener("click", () => {
+    filter.value = "";
+    applyFilter();
+    filter.focus();
+  });
+
+  const panel = document.getElementById("panel");
+  document.getElementById("add-shift").addEventListener("click", () => {
+    panel.hidden = false;
+    panel.getBoundingClientRect();
+    panel.classList.add("open");
+  });
+  document.getElementById("close-panel").addEventListener("click", () => {
+    panel.classList.remove("open");
+    panel.hidden = true;
+  });
+
+  const result = document.getElementById("result");
+  const save = document.getElementById("save");
+  document.getElementById("shift-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    save.textContent = t.saving;
+    result.textContent = "";
+    setTimeout(() => {
+      save.textContent = t.save;
+      result.className = "result ok";
+      result.textContent = t.saved;
+    }, 1200);
+  });
+
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      const notice = document.createElement("p");
+      notice.className = "notice";
+      notice.textContent = t.notice;
+      document.getElementById("notice-slot").append(notice);
+    }, 400);
+  });
+</script>
+</body>
+</html>

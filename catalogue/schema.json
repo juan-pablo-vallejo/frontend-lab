@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Catalogue component",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "purpose",
+    "platforms",
+    "status",
+    "dependencies",
+    "provenance",
+    "variants",
+    "accessibility",
+    "motion_tokens",
+    "tests",
+    "screenshots",
+    "known_limitations",
+    "changelog",
+    "recipe"
+  ],
+  "definitions": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "texts": { "type": "array", "items": { "$ref": "#/definitions/text" } },
+    "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+  },
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "name": { "$ref": "#/definitions/text" },
+    "purpose": { "$ref": "#/definitions/text" },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["web", "ios", "android"] }
+    },
+    "status": { "enum": ["experimental", "validated", "project-specific"] },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version"],
+        "properties": {
+          "name": { "$ref": "#/definitions/text" },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "changes"],
+      "properties": {
+        "source": {
+          "anyOf": [
+            { "type": "string", "pattern": "^https://\\S+$" },
+            { "const": "original" }
+          ]
+        },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "spdx": { "type": "string", "pattern": "^[A-Za-z0-9.+-]+$" },
+        "changes": { "$ref": "#/definitions/text" }
+      },
+      "if": { "properties": { "source": { "const": "original" } } },
+      "then": {},
+      "else": {
+        "properties": { "commit": true, "spdx": true },
+        "required": ["commit", "spdx"]
+      }
+    },
+    "variants": { "$ref": "#/definitions/texts" },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "keyboard", "reduced_motion", "scan"],
+      "properties": {
+        "role": { "$ref": "#/definitions/text" },
+        "keyboard": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/text" }
+        },
+        "reduced_motion": { "$ref": "#/definitions/text" },
+        "scan": { "$ref": "#/definitions/text" }
+      }
+    },
+    "motion_tokens": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/text" }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stories", "aria_snapshot", "visual_references"],
+      "properties": {
+        "stories": { "$ref": "#/definitions/texts" },
+        "aria_snapshot": { "$ref": "#/definitions/text" },
+        "visual_references": { "$ref": "#/definitions/texts" }
+      }
+    },
+    "screenshots": { "$ref": "#/definitions/texts" },
+    "known_limitations": { "$ref": "#/definitions/texts" },
+    "changelog": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "change"],
+        "properties": {
+          "date": { "$ref": "#/definitions/date" },
+          "change": { "$ref": "#/definitions/text" }
+        }
+      }
+    },
+    "recipe": { "$ref": "#/definitions/text" }
+  }
+}

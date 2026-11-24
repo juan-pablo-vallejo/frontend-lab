@@ -1,0 +1,12 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+storybook-static/
+dist/
+captures/
+.env*
+.expo/
+*.log
+*.tsbuildinfo
+.DS_Store

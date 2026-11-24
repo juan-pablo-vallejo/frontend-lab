@@ -1,0 +1,18 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "experiments/*"
+
+# Install scripts run only for a package named here with `true`; a package named with `false`
+# is refused by name. None of the current dependencies declares an install, preinstall or
+# postinstall script (checked against each installed package.json), so the map is empty, and
+# an install that meets a new one stops until that package is reviewed and listed here.
+allowBuilds: {}
+
+# A release younger than a day is refused (pnpm.io/settings/dependency-resolution). Wait it
+# out; never lower it.
+minimumReleaseAge: 1440
+
+# A release whose publishing evidence is weaker than an earlier release's (lost provenance or
+# trusted publishing) is refused (pnpm.io/settings/dependency-resolution).
+trustPolicy: no-downgrade

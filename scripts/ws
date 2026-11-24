@@ -1,0 +1,116 @@
+#!/bin/sh
+# Drives the comparison machine over SSH: the one Linux machine where reference images are
+# written and compared. This file names no machine. The SSH alias and the folder there come
+# from the environment, or from ~/.config/frontend-lab/env:
+#
+#   FRONTEND_LAB_WS_HOST=<ssh alias>
+#   FRONTEND_LAB_WS_DIR=<folder under that account's home, used for nothing else>
+#
+#   scripts/ws send    send the tracked files, install the packages and the browser
+#   scripts/ws refs    write reference images there, then bring them here to commit
+#   scripts/ws run     compare against the references there
+#   scripts/ws test    run the script and accessibility tests there
+#   scripts/ws pull    bring the test results here, outside the repository
+#   --print            as the first argument: print the commands instead of running them
+#
+# Only tracked files are sent, so nothing ignored and no credential can travel. Nothing is
+# served there beyond loopback.
+set -eu
+
+die() {
+  echo "ws: $*" >&2
+  exit 2
+}
+
+print=0
+if [ "${1:-}" = "--print" ]; then
+  print=1
+  shift
+fi
+action=${1:-}
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+env_file=${FRONTEND_LAB_ENV:-$HOME/.config/frontend-lab/env}
+
+# Read the two settings without running the file: a line is KEY=value and nothing else.
+setting() {
+  eval "current=\${$1:-}"
+  if [ -n "$current" ]; then
+    printf '%s' "$current"
+  elif [ -f "$env_file" ]; then
+    sed -n "s/^$1=//p" "$env_file" | head -n 1
+  fi
+}
+host=$(setting FRONTEND_LAB_WS_HOST)
+dir=$(setting FRONTEND_LAB_WS_DIR)
+
+[ -n "$host" ] || die "FRONTEND_LAB_WS_HOST is not set (environment, or $env_file)"
+[ -n "$dir" ] || die "FRONTEND_LAB_WS_DIR is not set (environment, or $env_file)"
+case "$host" in
+  *[!A-Za-z0-9._-]* | -*) die "FRONTEND_LAB_WS_HOST must be a plain SSH alias" ;;
+esac
+case "$dir" in
+  /* | -* | *..* | *[!A-Za-z0-9._/-]* | . | ./) die "FRONTEND_LAB_WS_DIR must be a plain folder under the home directory" ;;
+esac
+
+telemetry="DO_NOT_TRACK=1 STORYBOOK_DISABLE_TELEMETRY=true NEXT_TELEMETRY_DISABLED=1 EXPO_NO_TELEMETRY=1 MAESTRO_CLI_NO_ANALYTICS=true"
+results="$HOME/Library/Caches/visual-qa/frontend-lab/ws"
+
+run() {
+  if [ "$print" = 1 ]; then
+    printf '%s\n' "$*"
+  else
+    "$@"
+  fi
+}
+
+# Stops on the comparison machine, with exit 3 and one line, when the folder is not one that
+# `send` made (no marker): nothing then runs there and nothing is copied back.
+marker="[ -e '$dir/.frontend-lab-ws' ] || { echo 'ws: the folder there is missing or was not made by scripts/ws send' >&2; exit 3; }"
+
+# One command on the comparison machine, inside the folder, in a login shell so that Node
+# and pnpm are on the path. It runs only in a folder that carries the marker.
+remote() {
+  run ssh -o BatchMode=yes "$host" "$marker; cd '$dir' && $telemetry bash -lc '$1'"
+}
+
+case "$action" in
+  send)
+    # The folder is ours only when our marker is in it. A folder that is not empty and has no
+    # marker is left alone: this script never clears a folder it did not make.
+    run ssh -o BatchMode=yes "$host" "mkdir -p '$dir' && cd '$dir' && if [ -e .frontend-lab-ws ]; then find . -mindepth 1 -maxdepth 1 ! -name .frontend-lab-ws ! -name node_modules ! -name visual-refs ! -name test-results -exec rm -r {} +; elif [ -n \"\$(ls -A)\" ]; then echo 'ws: the folder is not empty and was not made by this script' >&2; exit 3; else touch .frontend-lab-ws; fi"
+    if [ "$print" = 1 ]; then
+      # Print, do not run: no git is needed, so --print works in a copy that is no repository.
+      list="<list>"
+      printf '%s\n' "git -C $root ls-files -z > $list"
+    else
+      list=$(mktemp)
+      trap 'rm -f "$list"' EXIT
+      git -C "$root" ls-files -z > "$list"
+    fi
+    run rsync -a --from0 --files-from="$list" "$root/" "$host:$dir/"
+    remote "pnpm install --frozen-lockfile && pnpm exec playwright install chromium"
+    ;;
+  refs)
+    remote "VISUAL_REFS=1 pnpm test:visual --update-snapshots"
+    run mkdir -p "$root/visual-refs"
+    run rsync -a "$host:$dir/visual-refs/" "$root/visual-refs/"
+    ;;
+  run)
+    remote "VISUAL_REFS=1 pnpm test:visual"
+    ;;
+  test)
+    # The guard's tests need gitleaks, which the comparison machine does not have, by design
+    # (no credential tooling there): Playwright matches --grep-invert against "project file
+    # describe title", so this leaves out every test in scripts/test/guard.spec.ts.
+    remote "pnpm typecheck && pnpm exec playwright test --project=scripts --grep-invert guard\\.spec\\.ts && pnpm test:a11y"
+    ;;
+  pull)
+    run ssh -o BatchMode=yes "$host" "$marker"
+    run mkdir -p "$results"
+    run rsync -a "$host:$dir/test-results/" "$results/"
+    ;;
+  *)
+    die "usage: scripts/ws [--print] send|refs|run|test|pull"
+    ;;
+esac

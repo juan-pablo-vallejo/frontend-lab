@@ -1,0 +1,7 @@
+{
+  "contrast": { "text": 4.5, "largeText": 3 },
+  "targetSize": 24,
+  "maxAnimationMs": 500,
+  "maxLayoutShift": 0.1,
+  "minFocusOutline": 2
+}

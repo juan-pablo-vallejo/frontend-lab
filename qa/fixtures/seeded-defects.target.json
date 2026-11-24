@@ -1,0 +1,38 @@
+{
+  "name": "seeded-defects",
+  "serve": { "dir": "seeded-defects" },
+  "routes": [
+    { "id": "defects", "path": "/index.html", "waitFor": ".notice" },
+    { "id": "clean", "path": "/clean.html", "waitFor": ".notice" }
+  ],
+  "widths": [390, 768, 1280],
+  "languages": [
+    { "id": "en", "query": "lang=en" },
+    { "id": "es", "query": "lang=es" }
+  ],
+  "states": [
+    { "id": "panel", "steps": [{ "click": "#add-shift" }, { "waitFor": "#panel" }] },
+    {
+      "id": "confirmation",
+      "steps": [
+        { "click": "#add-shift" },
+        { "waitFor": "#panel" },
+        { "waitMs": 900 },
+        { "fill": ["#shift-person", "Avery"] },
+        { "click": "#save" },
+        { "waitFor": "#result.ok" }
+      ]
+    },
+    {
+      "id": "saved",
+      "steps": [
+        { "click": "#add-shift" },
+        { "waitFor": "#panel" },
+        { "fill": ["#shift-person", "Avery"] },
+        { "click": "#save" },
+        { "waitMs": 1600 }
+      ]
+    },
+    { "id": "empty", "steps": [{ "fill": ["#filter", "zzz"] }, { "waitMs": 200 }] }
+  ]
+}

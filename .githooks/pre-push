@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses a push that adds a home-directory path, a private network address, a line of the
+# private list or anything gitleaks reports. Turn on with: git config core.hooksPath .githooks
+exec "$(dirname "$0")/../scripts/guard" --pre-push "$@"

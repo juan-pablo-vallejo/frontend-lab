@@ -1,0 +1,5 @@
+#!/bin/sh
+# Starts Node on scripts/lib/guard.ts; Node strips the types itself.
+export DO_NOT_TRACK=1 STORYBOOK_DISABLE_TELEMETRY=true NEXT_TELEMETRY_DISABLED=1 \
+  EXPO_NO_TELEMETRY=1 MAESTRO_CLI_NO_ANALYTICS=true
+exec node "$(dirname "$0")/lib/guard.ts" "$@"
